@@ -1,7 +1,6 @@
-## CurricularFace: Adaptive Curriculum Learning Loss for Deep Face Recognition
-Yuge Huang, Yuhan Wang, Ying Tai, Xiaoming Liu, Pengcheng Shen, Shaoxin Li, Jilin Li, Feiyue Huang
+## cavaface.pytorch: A Pytorch Training Framework for Deep Face Recognition
 
-This repository is the official PyTorch implementation of paper [CurricularFace: Adaptive Curriculum Learning Loss for Deep Face Recognition](). (The work has been accepted by [CVPR2020](http://cvpr2020.thecvf.com/))
+
 
 ## Main requirements
 
@@ -22,28 +21,15 @@ sh evaluate.sh
 ```
 You can change the experimental setting by simply modifying the parameter in the config.py
 
-## Model
-The IR101 pretrained model can be downloaded here. 
-[Baidu Cloud](link: https://pan.baidu.com/s/1bu-uocgSyFHf5pOPShhTyA 
-passwd: 5qa0), 
-[Google Drive](https://drive.google.com/open?id=1upOyrPzZ5OI3p6WkA5D5JFYCeiZuaPcp)
 
-## Citing this repository
-If you find this code useful in your research, please consider citing us:
+## Acknowledgement
+
+* This repo is inspired by [face.evoLVe.PyTorch](https://github.com/ZhaoJ9014/face.evoLVe.PyTorch), [CurricularFace](https://github.com/HuangYG123/CurricularFace), [insightface](https://github.com/deepinsight/insightface).
+
+## Contact
+
 ```
-@article{huang2020curricularface,
-	title={CurricularFace: Adaptive Curriculum Learning Loss for Deep Face Recognition},
-	author={Yuge Huang and Yuhan Wang and Ying Tai and  Xiaoming Liu and Pengcheng Shen and Shaoxin Li and Jilin Li, Feiyue Huang},
-	booktitle={CVPR},
-	pages={1--8},
-	year={2020}
-}
+cavalleria@gmail.com
 ```
-
-## Contacts
-If you have any questions about our work, please do not hesitate to contact us by emails.
-Yuge Huang: yugehuang@tencent.com
-Ying Tai: yingtai@tencent.com
-
 
 
