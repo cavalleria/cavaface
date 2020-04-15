@@ -1,5 +1,13 @@
 ## cavaface.pytorch: A Pytorch Training Framework for Deep Face Recognition
 
+By Yaobin Li
+
+
+## License
+
+The code of cavaface.pytorch is released under the MIT License. There is no limitation for both acadmic and commercial usage.
+
+The training data containing the annotation (and the models trained with these data) are available for non-commercial research purposes only.
 
 
 ## Main requirements
@@ -25,6 +33,7 @@ You can change the experimental setting by simply modifying the parameter in the
 ## Acknowledgement
 
 * This repo is inspired by [face.evoLVe.PyTorch](https://github.com/ZhaoJ9014/face.evoLVe.PyTorch), [CurricularFace](https://github.com/HuangYG123/CurricularFace), [insightface](https://github.com/deepinsight/insightface).
+
 
 ## Contact
 
