@@ -5,7 +5,7 @@ from torch.nn import Linear, Conv2d, BatchNorm1d, BatchNorm2d, PReLU, ReLU, Sigm
 from collections import namedtuple
 
 
-# Support: ['IR_50', 'IR_101', 'IR_152', 'IR_SE_50', 'IR_SE_101', 'IR_SE_152']
+# Support: ['IR_50', 'IR_100', 'IR_101', 'IR_152', 'IR_185', 'IR_200', 'IR_SE_50', 'IR_SE_100', 'IR_SE_101', 'IR_SE_152', 'IR_SE_185', 'IR_SE_200']
 
 
 class Flatten(Module):
@@ -117,10 +117,31 @@ def get_blocks(num_layers):
             get_block(in_channel=128, depth=256, num_units=30),
             get_block(in_channel=256, depth=512, num_units=3)
         ]
+    elif num_layers == 101:
+        blocks = [
+            get_block(in_channel=64, depth=64, num_units=3),
+            get_block(in_channel=64, depth=64, num_units=4),
+            get_block(in_channel=64, depth=64, num_units=23),
+            get_block(in_channel=64, depth=64, num_units=3)
+        ]
     elif num_layers == 152:
         blocks = [
             get_block(in_channel=64, depth=64, num_units=3),
             get_block(in_channel=64, depth=128, num_units=8),
+            get_block(in_channel=128, depth=256, num_units=36),
+            get_block(in_channel=256, depth=512, num_units=3)
+        ]
+    elif num_layers == 185:
+        blocks = [
+            get_block(in_channel=64, depth=64, num_units=3),
+            get_block(in_channel=64, depth=128, num_units=22),
+            get_block(in_channel=128, depth=256, num_units=33),
+            get_block(in_channel=256, depth=512, num_units=3)
+        ]
+    elif num_layers == 200:
+        blocks = [
+            get_block(in_channel=64, depth=64, num_units=3),
+            get_block(in_channel=64, depth=128, num_units=24),
             get_block(in_channel=128, depth=256, num_units=36),
             get_block(in_channel=256, depth=512, num_units=3)
         ]
@@ -195,14 +216,19 @@ def IR_50(input_size):
 
     return model
 
-
-def IR_101(input_size):
-    """Constructs a ir-101 model.
+def IR_100(input_size):
+    """Constructs a ir-100 model.
     """
     model = Backbone(input_size, 100, 'ir')
 
     return model
 
+def IR_101(input_size):
+    """Constructs a ir-101 model.
+    """
+    model = Backbone(input_size, 101, 'ir')
+
+    return model
 
 def IR_152(input_size):
     """Constructs a ir-152 model.
@@ -211,6 +237,19 @@ def IR_152(input_size):
 
     return model
 
+def IR_185(input_size):
+    """Constructs a ir-185 model.
+    """
+    model = Backbone(input_size, 185, 'ir')
+
+    return model
+
+def IR_200(input_size):
+    """Constructs a ir-200 model.
+    """
+    model = Backbone(input_size, 200, 'ir')
+
+    return model
 
 def IR_SE_50(input_size):
     """Constructs a ir_se-50 model.
@@ -219,11 +258,17 @@ def IR_SE_50(input_size):
 
     return model
 
+def IR_SE_100(input_size):
+    """Constructs a ir_se-100 model.
+    """
+    model = Backbone(input_size, 100, 'ir_se')
+
+    return model
 
 def IR_SE_101(input_size):
     """Constructs a ir_se-101 model.
     """
-    model = Backbone(input_size, 100, 'ir_se')
+    model = Backbone(input_size, 101, 'ir_se')
 
     return model
 
@@ -232,5 +277,19 @@ def IR_SE_152(input_size):
     """Constructs a ir_se-152 model.
     """
     model = Backbone(input_size, 152, 'ir_se')
+
+    return model
+
+def IR_SE_185(input_size):
+    """Constructs a ir_se-185 model.
+    """
+    model = Backbone(input_size, 185, 'ir_se')
+
+    return model
+
+def IR_SE_200(input_size):
+    """Constructs a ir_se-200 model.
+    """
+    model = Backbone(input_size, 200, 'ir_se')
 
     return model

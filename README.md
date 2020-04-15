@@ -32,7 +32,7 @@ You can change the experimental setting by simply modifying the parameter in the
 
 ## Acknowledgement
 
-* This repo is inspired by [face.evoLVe.PyTorch](https://github.com/ZhaoJ9014/face.evoLVe.PyTorch), [CurricularFace](https://github.com/HuangYG123/CurricularFace), [insightface](https://github.com/deepinsight/insightface).
+* This repo is inspired by [face.evoLVe.PyTorch](https://github.com/ZhaoJ9014/face.evoLVe.PyTorch), [CurricularFace](https://github.com/HuangYG123/CurricularFace) and [insightface](https://github.com/deepinsight/insightface).
 
 
 ## Contact
