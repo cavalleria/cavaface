@@ -9,7 +9,6 @@ The code of cavaface.pytorch is released under the MIT License. There is no limi
 
 The training data containing the annotation (and the models trained with these data) are available for non-commercial research purposes only.
 
-
 ## Main requirements
 
   * **torch == 1.1.0**
@@ -17,7 +16,66 @@ The training data containing the annotation (and the models trained with these d
   * **tensorboardX == 1.7**
   * **bcolz == 1.2.1**
   * **Python 3**
-  
+
+## Features
+  * **Backone**
+    * [x] ResNet(IR-SE)
+    * [ ] ResNeXt
+    * [ ] DenseNet
+    * [x] MobileFaceNet
+    * [ ] MobileNetV3
+    * [ ] EfficientNet
+    * [ ] VargFaceNet
+    * [ ] ProxylessNas
+    * [ ] GhostNet
+    * [ ] AttentionNet-IRSE
+    * [x] EfficientPolyFace
+    * [ ] Res2Net
+    * [ ] ResNeSt
+  * **Attention Module**
+    * [x] SE
+    * [ ] CBAM
+    * [ ] ECA
+    * [ ] ACNet
+    * [ ] DropBlock 
+  * **Loss**
+    * [x] Softmax
+    * [x] SphereFace
+    * [x] Am_Softmax
+    * [x] CosFace
+    * [x] ArcFace
+    * [ ] Combined Loss
+    * [x] SV-X-Softmax
+    * [x] CurricularFace
+    * [x] ArcNegFace
+    * [x] Li-Arcface
+    * [x] QAMFace
+	* **并行训练**
+    * [x] Data Parallel
+    * [ ] Model Parallel
+  * **Automatic Mixed Precision**
+    * [ ] Apex
+  * **Optimizer**
+    * [ ] LR_Scheduler([faireq](https://github.com/pytorch/fairseq/tree/master/fairseq/optim/lr_scheduler),[rwightman](https://github.com/rwightman/pytorch-image-models/tree/master/timm/scheduler))
+    * [ ] Optim(SGD,Adam)
+  * **[Data Augmentation](https://github.com/albumentations-team/albumentations)**
+    * [ ] Blur
+    * [ ] Motion
+    * [ ] Occlusion
+    * [ ] Color jitter
+    * [ ] [RandomErasing](https://github.com/zhunzhong07/Random-Erasing/blob/master/transforms.py)(官方版torchvision.transforms.RandomErasing)
+    * [ ] [AutoAugment](https://github.com/rwightman/pytorch-image-models)
+    * [ ] Mixup
+    * [ ] RandAugment
+    * [ ] AugMix
+  * **Distillation**
+    * [ ] KnowledgeDistillation
+    * [ ] Multi Feature KD
+  * **Bag of Tricks**
+    * [ ] Label smooth
+    * [ ] LR warmup
+    * [ ] Zero gamma
+
 ## Usage
 ```bash
 # To train the model:
