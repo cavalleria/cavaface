@@ -10,8 +10,9 @@ import torch.multiprocessing as mp
 import torch.nn.functional as F
 
 from config import configurations
-from backbone.model_resnet import *
-from backbone.model_irse import *
+from backbone.resnet import *
+from backbone.resnet_irse import *
+from backbone.mobilefacenet import *
 from head.metrics import *
 from loss.loss import *
 from util.utils import separate_irse_bn_paras, separate_resnet_bn_paras, get_time, AverageMeter, accuracy

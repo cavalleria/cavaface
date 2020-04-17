@@ -153,7 +153,7 @@ class Backbone(Module):
     def __init__(self, input_size, num_layers, mode='ir'):
         super(Backbone, self).__init__()
         assert input_size[0] in [112, 224], "input_size should be [112, 112] or [224, 224]"
-        assert num_layers in [50, 100, 152], "num_layers should be 50, 100 or 152"
+        assert num_layers in [50, 100, 101, 152, 185, 200], "num_layers should be 50, 100 or 152"
         assert mode in ['ir', 'ir_se'], "mode should be ir or ir_se"
         blocks = get_blocks(num_layers)
         if mode == 'ir':
