@@ -10,9 +10,10 @@ import torch.multiprocessing as mp
 import torch.nn.functional as F
 
 from config import configurations
-from backbone.model_resnet import ResNet_50, ResNet_101, ResNet_152
-from backbone.model_irse import IR_50, IR_101, IR_152, IR_SE_50, IR_SE_101, IR_SE_152
-from head.metrics import ArcFace, CurricularFace
+from backbone.model_resnet import *
+from backbone.model_irse import *
+from head.metrics import *
+from loss.loss import *
 from util.utils import separate_irse_bn_paras, separate_resnet_bn_paras, get_time, AverageMeter, accuracy
 from dataset.datasets import FaceDataset
 from tensorboardX import SummaryWriter
@@ -59,6 +60,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
     RECORD_DIR = cfg['RECORD_DIR']
     RGB_MEAN = cfg['RGB_MEAN'] # for normalize inputs
     RGB_STD = cfg['RGB_STD']
+    DROP_LAST = cfg['DROP_LAST']
     train_transform = transforms.Compose([
            transforms.RandomHorizontalFlip(),
            transforms.ToTensor(),
@@ -66,7 +68,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
                             std = RGB_STD),])
     dataset_train = FaceDataset(DATA_ROOT, RECORD_DIR, train_transform)
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
-    train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle = (train_sampler is None), num_workers=workers, pin_memory=True, sampler=train_sampler, drop_last=True)
+    train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle = (train_sampler is None), num_workers=workers, pin_memory=True, sampler=train_sampler, drop_last=DROP_LAST)
     SAMPLE_NUMS = dataset_train.get_sample_num_of_each_class()
     NUM_CLASS = len(train_loader.dataset.classes)
     print("Number of Training Classes: {}".format(NUM_CLASS))
@@ -76,11 +78,17 @@ def main_worker(gpu, ngpus_per_node, cfg):
                      'ResNet_101': ResNet_101, 
                      'ResNet_152': ResNet_152,
                      'IR_50': IR_50, 
+                     'IR_100': IR_100,
                      'IR_101': IR_101, 
                      'IR_152': IR_152,
+                     'IR_185': IR_185,
+                     'IR_200': IR_200,
                      'IR_SE_50': IR_SE_50, 
+                     'IR_SE_100': IR_SE_100,
                      'IR_SE_101': IR_SE_101, 
-                     'IR_SE_152': IR_SE_152}
+                     'IR_SE_152': IR_SE_152,
+                     'IR_SE_185': IR_SE_185,
+                     'IR_SE_200': IR_SE_200}
     BACKBONE_NAME = cfg['BACKBONE_NAME']
     INPUT_SIZE = cfg['INPUT_SIZE']
     assert INPUT_SIZE == [112, 112]
@@ -89,8 +97,14 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print(backbone)
     print("{} Backbone Generated".format(BACKBONE_NAME))
     print("=" * 60)
-    HEAD_DICT = {'ArcFace': ArcFace,
-                 'CurricularFace': CurricularFace}
+    HEAD_DICT = {'Softmax', Softmax,
+                 'ArcFace': ArcFace,
+                 'CosFace': CosFace,
+                 'SphereFace': SphereFace,
+                 'Am_softmax': Am_softmax,
+                 'CurricularFace': CurricularFace,
+                 'ArcNegFace': ArcNegFace,
+                 'SVX': SVX}
     HEAD_NAME = cfg['HEAD_NAME']
     EMBEDDING_SIZE = cfg['EMBEDDING_SIZE'] # feature dimension
     head = HEAD_DICT[HEAD_NAME](in_features = EMBEDDING_SIZE, out_features = NUM_CLASS)
@@ -117,7 +131,9 @@ def main_worker(gpu, ngpus_per_node, cfg):
    
     # loss
     LOSS_NAME = cfg['LOSS_NAME']
-    LOSS_DICT = {'Softmax': nn.CrossEntropyLoss()}
+    LOSS_DICT = {'Softmax': nn.CrossEntropyLoss(),
+                 'Focal'  : FocalLoss(),
+                 'HM'     : HardMining()}
     loss = LOSS_DICT[LOSS_NAME].cuda(gpu)
     print("=" * 60)
     print(loss)
