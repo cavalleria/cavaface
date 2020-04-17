@@ -50,7 +50,7 @@ The training data containing the annotation (and the models trained with these d
     * [x] ArcNegFace
     * [x] Li-Arcface
     * [x] QAMFace
-	* **并行训练**
+  * **Parallel Training**
     * [x] Data Parallel
     * [ ] Model Parallel
   * **Automatic Mixed Precision**
