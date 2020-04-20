@@ -12,91 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Conv2d, Module, Linear, BatchNorm2d, ReLU
 from torch.nn.modules.utils import _pair
-
-__all__ = ['SKConv2d']
-
-class DropBlock2D(object):
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError
-
-class SplAtConv2d(Module):
-    """Split-Attention Conv2d
-    """
-    def __init__(self, in_channels, channels, kernel_size, stride=(1, 1), padding=(0, 0),
-                 dilation=(1, 1), groups=1, bias=True,
-                 radix=2, reduction_factor=4,
-                 rectify=False, rectify_avg=False, norm_layer=None,
-                 dropblock_prob=0.0, **kwargs):
-        super(SplAtConv2d, self).__init__()
-        padding = _pair(padding)
-        self.rectify = rectify and (padding[0] > 0 or padding[1] > 0)
-        self.rectify_avg = rectify_avg
-        inter_channels = max(in_channels*radix//reduction_factor, 32)
-        self.radix = radix
-        self.cardinality = groups
-        self.channels = channels
-        self.dropblock_prob = dropblock_prob
-        if self.rectify:
-            from rfconv import RFConv2d
-            self.conv = RFConv2d(in_channels, channels*radix, kernel_size, stride, padding, dilation,
-                                 groups=groups*radix, bias=bias, average_mode=rectify_avg, **kwargs)
-        else:
-            self.conv = Conv2d(in_channels, channels*radix, kernel_size, stride, padding, dilation,
-                               groups=groups*radix, bias=bias, **kwargs)
-        self.use_bn = norm_layer is not None
-        self.bn0 = norm_layer(channels*radix)
-        self.relu = ReLU(inplace=True)
-        self.fc1 = Conv2d(channels, inter_channels, 1, groups=self.cardinality)
-        self.bn1 = norm_layer(inter_channels)
-        self.fc2 = Conv2d(inter_channels, channels*radix, 1, groups=self.cardinality)
-        if dropblock_prob > 0.0:
-            self.dropblock = DropBlock2D(dropblock_prob, 3)
-
-    def forward(self, x):
-        x = self.conv(x)
-        if self.use_bn:
-            x = self.bn0(x)
-        if self.dropblock_prob > 0.0:
-            x = self.dropblock(x)
-        x = self.relu(x)
-
-        batch, channel = x.shape[:2]
-        if self.radix > 1:
-            splited = torch.split(x, channel//self.radix, dim=1)
-            gap = sum(splited) 
-        else:
-            gap = x
-        gap = F.adaptive_avg_pool2d(gap, 1)
-        gap = self.fc1(gap)
-
-        if self.use_bn:
-            gap = self.bn1(gap)
-        gap = self.relu(gap)
-
-        atten = self.fc2(gap).view((batch, self.radix, self.channels))
-        if self.radix > 1:
-            atten = F.softmax(atten, dim=1).view(batch, -1, 1, 1)
-        else:
-            atten = F.sigmoid(atten, dim=1).view(batch, -1, 1, 1)
-
-        if self.radix > 1:
-            atten = torch.split(atten, channel//self.radix, dim=1)
-            out = sum([att*split for (att, split) in zip(atten, splited)])
-        else:
-            out = atten * x
-        return out.contiguous()
-
-class DropBlock2D(object):
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError
-
-class GlobalAvgPool2d(nn.Module):
-    def __init__(self):
-        """Global average pooling over the input's spatial dimensions"""
-        super(GlobalAvgPool2d, self).__init__()
-
-    def forward(self, inputs):
-        return nn.functional.adaptive_avg_pool2d(inputs, 1).view(inputs.size(0), -1)
+from .nn import SplAtConv2d, DropBlock2D, GlobalAvgPool2d, RFConv2d
 
 class Bottleneck(nn.Module):
     """ResNet Bottleneck
@@ -223,8 +139,8 @@ class ResNet(nn.Module):
         - Yu, Fisher, and Vladlen Koltun. "Multi-scale context aggregation by dilated convolutions."
     """
     # pylint: disable=unused-variable
-    def __init__(self, block, layers, radix=1, groups=1, bottleneck_width=64,
-                 num_classes=1000, dilated=False, dilation=1,
+    def __init__(self, input_size, block, layers, radix=1, groups=1, 
+                 bottleneck_width=64, dilated=False, dilation=1,
                  deep_stem=False, stem_width=64, avg_down=False,
                  rectified_conv=False, rectify_avg=False,
                  avd=False, avd_first=False,
@@ -289,9 +205,13 @@ class ResNet(nn.Module):
             self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
                                            norm_layer=norm_layer,
                                            dropblock_prob=dropblock_prob)
-        self.avgpool = GlobalAvgPool2d()
-        self.drop = nn.Dropout(final_drop) if final_drop > 0.0 else None
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.bn_o1 = BatchNorm2d(2048)
+        self.dropout = Dropout()
+        if input_size[0] == 112:
+            self.fc = Linear(2048 * 4 * 4, 512)
+        else:
+            self.fc = Linear(2048 * 8 * 8, 512)
+        self.bn_o2 = BatchNorm1d(512)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -367,63 +287,47 @@ class ResNet(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
 
-        x = self.avgpool(x)
-        #x = x.view(x.size(0), -1)
-        x = torch.flatten(x, 1)
-        if self.drop:
-            x = self.drop(x)
+        x = self.bn_o1(x)
+        x = self.dropout(x)
+        x = x.view(x.size(0), -1)
         x = self.fc(x)
+        x = self.bn_o2(x)
 
         return x
 
 
-    model = ResNet(Bottleneck, [3, 4, 6, 3],
+def ResNeSt_50(input_size, **kwargs):
+    """Constructs a ResNeSt-50 model.
+    """
+    model = ResNet(input_size, Bottleneck, [3, 4, 6, 3],
                    radix=2, groups=1, bottleneck_width=64,
                    deep_stem=True, stem_width=32, avg_down=True,
                    avd=True, avd_first=False, **kwargs)
+    return model
 
-    model = ResNet(Bottleneck, [3, 4, 23, 3],
+def ResNeSt_101(input_size, **kwargs):
+    """Constructs a ResNeSt-101 model.
+    """
+    model = ResNet(input_size, Bottleneck, [3, 4, 23, 3],
                    radix=2, groups=1, bottleneck_width=64,
                    deep_stem=True, stem_width=64, avg_down=True,
                    avd=True, avd_first=False, **kwargs)
-    
-    model = ResNet(Bottleneck, [3, 24, 36, 3],
+    return model
+
+def ResNeSt_200(input_size, **kwargs):
+    """Constructs a ResNeSt-200 model.
+    """
+    model = ResNet(input_size, Bottleneck, [3, 24, 36, 3],
                    radix=2, groups=1, bottleneck_width=64,
                    deep_stem=True, stem_width=64, avg_down=True,
                    avd=True, avd_first=False, **kwargs)
+    return model
 
-    model = ResNet(Bottleneck, [3, 30, 48, 8],
+def ResNeSt_269(input_size, **kwargs):
+    """Constructs a ResNeSt-269 model.
+    """
+    model = ResNet(input_size, Bottleneck, [3, 30, 48, 8],
                    radix=2, groups=1, bottleneck_width=64,
                    deep_stem=True, stem_width=64, avg_down=True,
                    avd=True, avd_first=False, **kwargs)
-  
-
-def ResNet_50(input_size, **kwargs):
-    """Constructs a ResNet-50 model.
-    """
-    model = ResNet(input_size, Bottleneck, [3, 4, 6, 3], **kwargs)
-
-    return model
-
-
-def ResNet_101(input_size, **kwargs):
-    """Constructs a ResNet-101 model.
-    """
-    model = ResNet(input_size, Bottleneck, [3, 4, 23, 3], **kwargs)
-
-    return model
-
-
-def ResNet_200(input_size, **kwargs):
-    """Constructs a ResNet-152 model.
-    """
-    model = ResNet(input_size, Bottleneck, [3, 8, 36, 3], **kwargs)
-
-    return model
-
-def ResNet_269(input_size, **kwargs):
-    """Constructs a ResNet-152 model.
-    """
-    model = ResNet(input_size, Bottleneck, [3, 8, 36, 3], **kwargs)
-
     return model
