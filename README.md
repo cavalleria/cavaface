@@ -20,7 +20,7 @@ The training data containing the annotation (and the models trained with these d
 ## Features
   * **Backone**
     * [x] ResNet(IR-SE)
-    * [ ] ResNeXt
+    * [x] ResNeXt
     * [ ] DenseNet
     * [x] MobileFaceNet
     * [ ] MobileNetV3
@@ -31,7 +31,7 @@ The training data containing the annotation (and the models trained with these d
     * [ ] AttentionNet-IRSE
     * [x] EfficientPolyFace
     * [ ] Res2Net
-    * [ ] ResNeSt
+    * [x] ResNeSt
   * **Attention Module**
     * [x] SE
     * [ ] CBAM
