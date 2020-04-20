@@ -37,14 +37,13 @@ The training data containing the annotation (and the models trained with these d
     * [ ] CBAM
     * [ ] ECA
     * [ ] ACNet
-    * [ ] DropBlock 
   * **Loss**
     * [x] Softmax
     * [x] SphereFace
     * [x] Am_Softmax
     * [x] CosFace
     * [x] ArcFace
-    * [ ] Combined Loss
+    * [x] Combined Loss
     * [x] SV-X-Softmax
     * [x] CurricularFace
     * [x] ArcNegFace
