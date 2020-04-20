@@ -44,6 +44,7 @@ The training data containing the annotation (and the models trained with these d
     * [x] CosFace
     * [x] ArcFace
     * [x] Combined Loss
+    * [x] AdaCos
     * [x] SV-X-Softmax
     * [x] CurricularFace
     * [x] ArcNegFace
