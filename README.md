@@ -16,6 +16,7 @@ The training data containing the annotation (and the models trained with these d
   * **tensorboardX == 1.7**
   * **bcolz == 1.2.1**
   * **Python 3**
+  * **Apex == 0.1**
 
 ## Features
   * **Backone**
