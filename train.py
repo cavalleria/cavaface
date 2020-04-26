@@ -56,7 +56,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
     
     # Data loading code
     batch_size = int(cfg['BATCH_SIZE'] / ngpus_per_node)
-    workers = int((cfg['NUM_WORKERS'] + ngpus_per_node - 1) / ngpus_per_node)
+    workers = int((cfg['NUM_WORKERS'] + ngpus_per_node - 1) / ngpus_per_node) # dataload threads
     DATA_ROOT = cfg['DATA_ROOT'] # the parent root where your train/val/test data are stored
     RECORD_DIR = cfg['RECORD_DIR']
     RGB_MEAN = cfg['RGB_MEAN'] # for normalize inputs
@@ -98,7 +98,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print(backbone)
     print("{} Backbone Generated".format(BACKBONE_NAME))
     print("=" * 60)
-    HEAD_DICT = {'Softmax', Softmax,
+    HEAD_DICT = {'Softmax': Softmax,
                  'ArcFace': ArcFace,
                  'CosFace': CosFace,
                  'SphereFace': SphereFace,
@@ -117,13 +117,18 @@ def main_worker(gpu, ngpus_per_node, cfg):
    #--------------------optimizer-----------------------------
     if BACKBONE_NAME.find("IR") >= 0:
         backbone_paras_only_bn, backbone_paras_wo_bn = separate_irse_bn_paras(backbone) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
+        _, head_paras_wo_bn = separate_irse_bn_paras(head)
     else:
         backbone_paras_only_bn, backbone_paras_wo_bn = separate_resnet_bn_paras(backbone) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
+        _, head_paras_wo_bn = separate_resnet_bn_paras(head)
 
     LR = cfg['LR'] # initial LR
     WEIGHT_DECAY = cfg['WEIGHT_DECAY']
     MOMENTUM = cfg['MOMENTUM']
-    optimizer = optim.SGD([{'params': backbone_paras_wo_bn + list(head.parameters()), 'weight_decay': WEIGHT_DECAY}, {'params': backbone_paras_only_bn}], lr = LR, momentum = MOMENTUM)
+    optimizer = optim.SGD([
+                            {'params': backbone_paras_wo_bn + head_paras_wo_bn, 'weight_decay': WEIGHT_DECAY},
+                            {'params': backbone_paras_only_bn}
+                            ], lr = LR, momentum = MOMENTUM)
     print("=" * 60)
     print(optimizer)
     print("Optimizer Generated")
@@ -208,7 +213,7 @@ def train(train_loader, backbone, head, criterion, optimizer, epoch, cfg, writer
         labels = labels.cuda(cfg['GPU'], non_blocking=True)
         features, conv_features = backbone(inputs)
 
-        outputs, original_logits = head(features, labels)
+        outputs = head(features, labels)
         loss = criterion(outputs, labels)
         end_time = time.time()
         duration = end_time - start_time
@@ -221,7 +226,7 @@ def train(train_loader, backbone, head, criterion, optimizer, epoch, cfg, writer
         optimizer.step()
         
         # measure accuracy and record loss
-        prec1, prec5 = accuracy(original_logits.data, labels, topk = (1, 5))
+        prec1, prec5 = accuracy(outputs.data, labels, topk = (1, 5))
         losses.update(loss.data.item(), inputs.size(0))
         top1.update(prec1.data.item(), inputs.size(0))
         top5.update(prec5.data.item(), inputs.size(0))

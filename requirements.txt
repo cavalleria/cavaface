@@ -4,3 +4,6 @@ tensorboardX==1.7
 torch==1.1.0
 torchvision==0.3.0
 tqdm==4.32.2
+scikit-learn==0.22.1
+scipy==1.4.1
+matplotlib==3.1.3

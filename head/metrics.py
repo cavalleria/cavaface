@@ -470,7 +470,7 @@ class SVX(nn.Module):
         cos_theta *= self.s
         return cos_theta
 
-class AirFace(Module):
+class AirFace(nn.Module):
     r"""Implement of AirFace:Lightweight and Efficient Model for Face Recognition
         (https://arxiv.org/pdf/1907.12256.pdf):
         Args:
@@ -479,7 +479,7 @@ class AirFace(Module):
             s: norm of input feature
             m: margin
         """
-    def __init__(self, in_features, out_features, s=64., m=0.45)
+    def __init__(self, in_features, out_features, s=64., m=0.45):
         super(AirFace, self).__init__()
         self.classnum = out_features
         self.kernel = Parameter(torch.Tensor(in_features, classnum))
@@ -505,7 +505,7 @@ class AirFace(Module):
         output *= self.s  # scale up in order to make softmax work, first introduced in normface
         return output
 
-class QAMFace(Module):
+class QAMFace(nn.Module):
     r"""Implement of Quadratic Additive Angular Margin Loss for Face Recognition
         (https://arxiv.org/pdf/1907.12256.pdf):
         Args:
