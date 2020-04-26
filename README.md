@@ -53,7 +53,7 @@ The training data containing the annotation (and the models trained with these d
     * [x] QAMFace
   * **Parallel Training**
     * [x] Data Parallel
-    * [ ] Model Parallel
+    * [x] Model Parallel
   * **Automatic Mixed Precision**
     * [ ] Apex
   * **Optimizer**
@@ -91,7 +91,7 @@ You can change the experimental setting by simply modifying the parameter in the
 
 ## Acknowledgement
 
-* This repo is inspired by [face.evoLVe.PyTorch](https://github.com/ZhaoJ9014/face.evoLVe.PyTorch), [CurricularFace](https://github.com/HuangYG123/CurricularFace) and [insightface](https://github.com/deepinsight/insightface).
+* This repo is modified and adapted on these great repositories [face.evoLVe.PyTorch](https://github.com/ZhaoJ9014/face.evoLVe.PyTorch), [CurricularFace](https://github.com/HuangYG123/CurricularFace), [insightface](https://github.com/deepinsight/insightface) and [imgclsmob](https://github.com/osmr/imgclsmob/)
 
 
 ## Contact
