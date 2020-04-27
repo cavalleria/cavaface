@@ -6,8 +6,9 @@ configurations = {
         
         DATA_ROOT = '/home/dc2-user/datasets/facedata.mxnet/faces_webface_img', # the parent root where your train/val/test data are stored
         RECORD_DIR = '/home/dc2-user/datasets/facedata.mxnet/faces_webface.txt', # the dataset record dir
-        MODEL_ROOT = './model', # the root to buffer your checkpoints
-        LOG_ROOT = './log', # the root to log your train/val status
+        VAL_DATA_ROOT = '/home/dc2-user/datasets/facedata.mxnet/face_val_data', # the parent root where your val/test data are stored
+        MODEL_ROOT = '/home/dc2-user/lyb/models/test_pytorch/model', # the root to buffer your checkpoints
+        LOG_ROOT = '/home/dc2-user/lyb/models/test_pytorch/log', # the root to log your train/val status
         BACKBONE_RESUME_ROOT = "",
         HEAD_RESUME_ROOT = "",
         

@@ -36,8 +36,9 @@ def get_val_data(data_path):
     agedb_30, agedb_30_issame = get_val_pair(data_path, 'agedb_30')
     calfw, calfw_issame = get_val_pair(data_path, 'calfw')
     cplfw, cplfw_issame = get_val_pair(data_path, 'cplfw')
+    vgg2_fp, vgg2_fp_issame = get_val_pair(data_path, 'vgg2_fp')
 
-    return lfw, cfp_fp, agedb_30, cplfw, calfw, lfw_issame, cfp_fp_issame, agedb_30_issame, cplfw_issame, calfw_issame
+    return lfw, cfp_fp, agedb_30, calfw, cplfw, vgg2_fp, lfw_issame, cfp_fp_issame, agedb_30_issame, calfw_issame, cplfw_issame, vgg2_fp_issame 
 
 def separate_irse_bn_paras(modules):
     if not isinstance(modules, list):
@@ -148,6 +149,11 @@ def perform_val(embedding_size, batch_size, backbone, carray, issame, nrof_folds
     roc_curve_tensor = transforms.ToTensor()(roc_curve)
     return accuracy.mean(), best_thresholds.mean(), roc_curve_tensor
 
+def buffer_val(writer, db_name, acc, best_threshold, roc_curve_tensor, epoch):
+    writer.add_scalar('{}_Accuracy'.format(db_name), acc, epoch)
+    writer.add_scalar('{}_Best_Threshold'.format(db_name), best_threshold, epoch)
+    writer.add_image('{}_ROC_Curve'.format(db_name), roc_curve_tensor, epoch)
+    
 def gen_plot(fpr, tpr):
     """Create a pyplot plot and save to buffer."""
     plt.figure()
