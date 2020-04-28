@@ -25,6 +25,8 @@ import time
 import numpy as np
 import scipy
 import pickle
+from apex.parallel import DistributedDataParallel as DDP
+from apex import amp
 
 def adjust_learning_rate(optimizer, epoch, cfg):
     """Decay the learning rate based on schedule"""
@@ -63,6 +65,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
     RGB_MEAN = cfg['RGB_MEAN'] # for normalize inputs
     RGB_STD = cfg['RGB_STD']
     DROP_LAST = cfg['DROP_LAST']
+    NUM_EPOCH = cfg['NUM_EPOCH']
+    USE_APEX = cfg['USE_APEX']
     print("=" * 60)
     print("Overall Configurations:")
     print(cfg)
@@ -174,9 +178,14 @@ def main_worker(gpu, ngpus_per_node, cfg):
             print("No Checkpoint Found at '{}' and '{}'. Please Have a Check or Continue to Train from Scratch".format(BACKBONE_RESUME_ROOT, HEAD_RESUME_ROOT))
         print("=" * 60)
 
-
-    backbone = torch.nn.parallel.DistributedDataParallel(backbone, device_ids=[cfg['GPU']])
-    head = torch.nn.parallel.DistributedDataParallel(head, device_ids=[cfg['GPU']])
+    
+    if USE_APEX:
+        [backbone, head], optimizer = amp.initialize([backbone, head], optimizer, opt_level='O2')
+        backbone = DDP(backbone)
+        head = DDP(head)
+    else:
+        backbone = torch.nn.parallel.DistributedDataParallel(backbone, device_ids=[cfg['GPU']])
+        head = torch.nn.parallel.DistributedDataParallel(head, device_ids=[cfg['GPU']])
 
      # checkpoint and tensorboard dir
     MODEL_ROOT = cfg['MODEL_ROOT'] # the root to buffer your checkpoints
@@ -217,7 +226,11 @@ def main_worker(gpu, ngpus_per_node, cfg):
 
             # compute gradient and do SGD step
             optimizer.zero_grad()
-            lossx.backward()
+            if USE_APEX:
+                with amp.scale_loss(lossx, optimizer) as scaled_loss:
+                    scaled_loss.backward()
+            else:
+                lossx.backward()
             optimizer.step()
             
             # measure accuracy and record loss
@@ -253,25 +266,25 @@ def main_worker(gpu, ngpus_per_node, cfg):
         
         # perform validation & save checkpoints per epoch
         # validation statistics per epoch (buffer for visualization)
-        print("=" * 60)
-        print("Perform Evaluation on LFW, CFP_FF, CFP_FP, AgeDB, CALFW, CPLFW and VGG2_FP, and Save Checkpoints...")
-        accuracy_lfw, best_threshold_lfw, roc_curve_lfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, lfw, lfw_issame)
-        buffer_val(writer, "LFW", accuracy_lfw, best_threshold_lfw, roc_curve_lfw, epoch + 1)
-        #accuracy_cfp_ff, best_threshold_cfp_ff, roc_curve_cfp_ff = perform_val(EMBEDDING_SIZE, batch_size, backbone, cfp_ff, cfp_ff_issame)
-        #buffer_val(writer, "CFP_FF", accuracy_cfp_ff, best_threshold_cfp_ff, roc_curve_cfp_ff, epoch + 1)
-        accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, cfp_fp, cfp_fp_issame)
-        buffer_val(writer, "CFP_FP", accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp, epoch + 1)
-        accuracy_agedb, best_threshold_agedb, roc_curve_agedb = perform_val(EMBEDDING_SIZE, batch_size, backbone, agedb_30, agedb_30_issame)
-        buffer_val(writer, "AgeDB", accuracy_agedb, best_threshold_agedb, roc_curve_agedb, epoch + 1)
-        accuracy_calfw, best_threshold_calfw, roc_curve_calfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, calfw, calfw_issame)
-        buffer_val(writer, "CALFW", accuracy_calfw, best_threshold_calfw, roc_curve_calfw, epoch + 1)
-        accuracy_cplfw, best_threshold_cplfw, roc_curve_cplfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, cplfw, cplfw_issame)
-        buffer_val(writer, "CPLFW", accuracy_cplfw, best_threshold_cplfw, roc_curve_cplfw, epoch + 1)
-        accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, vgg2_fp, vgg2_fp_issame)
-        buffer_val(writer, "VGGFace2_FP", accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp, epoch + 1)
-        print("Epoch {}/{}, Evaluation: LFW Acc: {}, CFP_FF Acc: {}, CFP_FP Acc: {}, AgeDB Acc: {}, CALFW Acc: {}, CPLFW Acc: {}, VGG2_FP Acc: {}".format(epoch + 1, NUM_EPOCH, accuracy_lfw, accuracy_cfp_ff, accuracy_cfp_fp, accuracy_agedb, accuracy_calfw, accuracy_cplfw, accuracy_vgg2_fp))
-        print("=" * 60)
-
+        if (epoch+1) % 5 == 0:
+            print("=" * 60)
+            print("Perform Evaluation on LFW, CFP_FF, CFP_FP, AgeDB, CALFW, CPLFW and VGG2_FP, and Save Checkpoints...")
+            accuracy_lfw, best_threshold_lfw, roc_curve_lfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, lfw, lfw_issame)
+            buffer_val(writer, "LFW", accuracy_lfw, best_threshold_lfw, roc_curve_lfw, epoch + 1)
+            #accuracy_cfp_ff, best_threshold_cfp_ff, roc_curve_cfp_ff = perform_val(EMBEDDING_SIZE, batch_size, backbone, cfp_ff, cfp_ff_issame)
+            #buffer_val(writer, "CFP_FF", accuracy_cfp_ff, best_threshold_cfp_ff, roc_curve_cfp_ff, epoch + 1)
+            accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, cfp_fp, cfp_fp_issame)
+            buffer_val(writer, "CFP_FP", accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp, epoch + 1)
+            accuracy_agedb, best_threshold_agedb, roc_curve_agedb = perform_val(EMBEDDING_SIZE, batch_size, backbone, agedb_30, agedb_30_issame)
+            buffer_val(writer, "AgeDB", accuracy_agedb, best_threshold_agedb, roc_curve_agedb, epoch + 1)
+            accuracy_calfw, best_threshold_calfw, roc_curve_calfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, calfw, calfw_issame)
+            buffer_val(writer, "CALFW", accuracy_calfw, best_threshold_calfw, roc_curve_calfw, epoch + 1)
+            accuracy_cplfw, best_threshold_cplfw, roc_curve_cplfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, cplfw, cplfw_issame)
+            buffer_val(writer, "CPLFW", accuracy_cplfw, best_threshold_cplfw, roc_curve_cplfw, epoch + 1)
+            accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, vgg2_fp, vgg2_fp_issame)
+            buffer_val(writer, "VGGFace2_FP", accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp, epoch + 1)
+            print("Epoch {}/{}, Evaluation: LFW Acc: {}, CFP_FP Acc: {}, AgeDB Acc: {}, CALFW Acc: {}, CPLFW Acc: {}, VGG2_FP Acc: {}".format(epoch + 1, NUM_EPOCH, accuracy_lfw, accuracy_cfp_fp, accuracy_agedb, accuracy_calfw, accuracy_cplfw, accuracy_vgg2_fp))
+            print("=" * 60)
 
         print("=" * 60)
         print("Save Checkpoint...")

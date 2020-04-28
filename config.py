@@ -34,6 +34,9 @@ configurations = {
         GPU = [0,1,2,3,4,5,6,7], # specify your GPU ids
         DIST_BACKEND = 'nccl', # 'nccl', 'gloo'
         DIST_URL = 'tcp://localhost:23456',
-        NUM_WORKERS = 5
+        NUM_WORKERS = 5,
+        TEST_GPU_ID = [0,1,2,3,4,5,6,7],
+
+        USE_APEX = True
     ),
 }
