@@ -55,7 +55,7 @@ The training data containing the annotation (and the models trained with these d
     * [x] Data Parallel
     * [x] Model Parallel
   * **Automatic Mixed Precision**
-    * [ ] Apex
+    * [x] Apex
   * **Optimizer**
     * [ ] LR_Scheduler([faireq](https://github.com/pytorch/fairseq/tree/master/fairseq/optim/lr_scheduler),[rwightman](https://github.com/rwightman/pytorch-image-models/tree/master/timm/scheduler))
     * [ ] Optim(SGD,Adam)
