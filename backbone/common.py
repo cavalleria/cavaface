@@ -107,6 +107,8 @@ def get_activation_layer(activation):
             return nn.ReLU(inplace=True)
         elif activation == "relu6":
             return nn.ReLU6(inplace=True)
+        elif activation == "prelu":
+            return nn.PReLU()
         elif activation == "swish":
             return Swish()
         elif activation == "hswish":
