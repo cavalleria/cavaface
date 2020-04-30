@@ -9,10 +9,11 @@ configurations = {
         VAL_DATA_ROOT = '/home/dc2-user/datasets/facedata.mxnet/face_val_data', # the parent root where your val/test data are stored
         MODEL_ROOT = '/home/dc2-user/lyb/models/test_pytorch/model', # the root to buffer your checkpoints
         LOG_ROOT = '/home/dc2-user/lyb/models/test_pytorch/log', # the root to log your train/val status
+        IS_RESUME = False,
         BACKBONE_RESUME_ROOT = "",
         HEAD_RESUME_ROOT = "",
         
-        BACKBONE_NAME = 'IR_50', # support: ['ResNet_50', 'ResNet_101', 'ResNet_152', 'IR_50', 'IR_101', 'IR_152', 'IR_SE_50', 'IR_SE_101', 'IR_SE_152']
+        BACKBONE_NAME = 'MobileFaceNet', # support: ['MobileFaceNet', 'ResNet_50', 'ResNet_101', 'ResNet_152', 'IR_50', 'IR_101', 'IR_152', 'IR_SE_50', 'IR_SE_101', 'IR_SE_152']
         HEAD_NAME = "ArcFace", # support:  ['Softmax', 'ArcFace', 'CosFace', 'SphereFace', 'Am_softmax', 'ArcNegFace', 'CurricularFace', 'SVX']
         LOSS_NAME = 'Softmax', # support: [''Softmax', Focal', 'HardMining']
         
@@ -23,15 +24,19 @@ configurations = {
         BATCH_SIZE = 512,
         DROP_LAST = True, # whether drop the last batch to ensure consistent batch_norm statistics
         LR = 0.1, # initial LR
+        LR_SCHEDULER = 'muti_step', # step/muti_step/cosine
         START_EPOCH = 0, #start epoch
         NUM_EPOCH = 24, # total epoch number
+        LR_STEP_SIZE = 10, # period of learning rate decay. 
+        LR_DECAY_EPOCH = [10, 18, 22], # ms1m epoch stages to decay learning rate
+        LR_DECAT_GAMMA = 0.1, # multiplicative factor of learning rate decay
+        LR_END = 0.0001, # minimum learning rate
         WEIGHT_DECAY = 5e-4, # do not apply to batch_norm parameters
         MOMENTUM = 0.9,
-        STAGES = [10, 18, 22], # ms1m epoch stages to decay learning rate
         
         WORLD_SIZE = 1,
         RANK = 0,
-        GPU = [0,1,2,3,4,5,6,7], # specify your GPU ids
+        GPU = [0,1], # specify your GPU ids
         DIST_BACKEND = 'nccl', # 'nccl', 'gloo'
         DIST_URL = 'tcp://localhost:23456',
         NUM_WORKERS = 5,

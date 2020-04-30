@@ -8,7 +8,7 @@ import torchvision.datasets as datasets
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn.functional as F
-
+from torch.optim.lr_scheduler import StepLR, MultiStepLR, CosineAnnealingLR
 from config import configurations
 from backbone.resnet import *
 from backbone.resnet_irse import *
@@ -42,7 +42,7 @@ def main():
     torch.manual_seed(SEED)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = True
-    ngpus_per_node = torch.cuda.device_count()
+    ngpus_per_node = len(cfg['GPU'])
     world_size = cfg['WORLD_SIZE']
     cfg['WORLD_SIZE'] = ngpus_per_node * world_size
     mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, cfg))
@@ -57,7 +57,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
     dist.init_process_group(backend=cfg['DIST_BACKEND'], init_method = cfg["DIST_URL"], world_size=cfg['WORLD_SIZE'], rank=cfg['RANK'])
     
     # Data loading code
-    batch_size = int(cfg['BATCH_SIZE'] / ngpus_per_node)
+    batch_size = int(cfg['BATCH_SIZE'])
+    per_batch_size = int(batch_size / ngpus_per_node)
     workers = int((cfg['NUM_WORKERS'] + ngpus_per_node - 1) / ngpus_per_node) # dataload threads
     DATA_ROOT = cfg['DATA_ROOT'] # the parent root where your train/val/test data are stored
     VAL_DATA_ROOT = cfg['VAL_DATA_ROOT']
@@ -65,6 +66,11 @@ def main_worker(gpu, ngpus_per_node, cfg):
     RGB_MEAN = cfg['RGB_MEAN'] # for normalize inputs
     RGB_STD = cfg['RGB_STD']
     DROP_LAST = cfg['DROP_LAST']
+    LR_SCHEDULER = cfg['LR_SCHEDULER']
+    LR_STEP_SIZE = cfg['LR_STEP_SIZE']
+    LR_DECAY_EPOCH = cfg['LR_DECAY_EPOCH']
+    LR_DECAT_GAMMA = cfg['LR_DECAT_GAMMA']
+    LR_END = cfg['LR_END']
     NUM_EPOCH = cfg['NUM_EPOCH']
     USE_APEX = cfg['USE_APEX']
     print("=" * 60)
@@ -78,7 +84,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
                             std = RGB_STD),])
     dataset_train = FaceDataset(DATA_ROOT, RECORD_DIR, train_transform)
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
-    train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle = (train_sampler is None), num_workers=workers, pin_memory=True, sampler=train_sampler, drop_last=DROP_LAST)
+    train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=per_batch_size, shuffle = (train_sampler is None), num_workers=workers, pin_memory=True, sampler=train_sampler, drop_last=DROP_LAST)
     SAMPLE_NUMS = dataset_train.get_sample_num_of_each_class()
     NUM_CLASS = len(train_loader.dataset.classes)
     print("Number of Training Classes: {}".format(NUM_CLASS))
@@ -86,7 +92,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
     lfw, cfp_fp, agedb_30, calfw, cplfw, vgg2_fp, lfw_issame, cfp_fp_issame, agedb_30_issame, calfw_issame, cplfw_issame, vgg2_fp_issame = get_val_data(VAL_DATA_ROOT)
  
     #======= model & loss & optimizer =======#
-    BACKBONE_DICT = {'ResNet_50': ResNet_50, 
+    BACKBONE_DICT = {'MobileFaceNet': MobileFaceNet,
+                     'ResNet_50': ResNet_50, 
                      'ResNet_101': ResNet_101, 
                      'ResNet_152': ResNet_152,
                      'IR_50': IR_50, 
@@ -137,8 +144,15 @@ def main_worker(gpu, ngpus_per_node, cfg):
     WEIGHT_DECAY = cfg['WEIGHT_DECAY']
     MOMENTUM = cfg['MOMENTUM']
     optimizer = optim.SGD([
-                            {'params': backbone_paras_wo_bn + head_paras_wo_bn, 'weight_decay': WEIGHT_DECAY}
+                            {'params': list(backbone.parameters()) + list(head.parameters()), 'weight_decay': WEIGHT_DECAY},
                             ], lr = LR, momentum = MOMENTUM)
+    if LR_SCHEDULER == 'step':
+        scheduler = StepLR(optimizer, step_size=LR_STEP_SIZE, gamma=0.1)
+    elif LR_SCHEDULER == 'multi_step':
+        scheduler = MultiStepLR(optimizer, milestones=LR_DECAY_EPOCH, gamma=0.1)
+    elif LR_SCHEDULER == 'cosine':
+        scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCH, eta_min=LR_END)
+    
     print("=" * 60)
     print(optimizer)
     print("Optimizer Generated")
@@ -162,7 +176,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
     #optionally resume from a checkpoint 
     BACKBONE_RESUME_ROOT = cfg['BACKBONE_RESUME_ROOT'] # the root to resume training from a saved checkpoint
     HEAD_RESUME_ROOT = cfg['HEAD_RESUME_ROOT']  # the root to resume training from a saved checkpoint
-    if BACKBONE_RESUME_ROOT:
+    IS_RESUME = cfg['IS_RESUME']
+    if IS_RESUME:
         print("=" * 60)
         if os.path.isfile(BACKBONE_RESUME_ROOT):
             print("Loading Backbone Checkpoint '{}'".format(BACKBONE_RESUME_ROOT))
@@ -190,7 +205,6 @@ def main_worker(gpu, ngpus_per_node, cfg):
      # checkpoint and tensorboard dir
     MODEL_ROOT = cfg['MODEL_ROOT'] # the root to buffer your checkpoints
     LOG_ROOT = cfg['LOG_ROOT'] # the root to log your train/val status
-    STAGES = cfg['STAGES'] # epoch stages to decay learning rate
     
     os.makedirs(MODEL_ROOT, exist_ok=True)
     os.makedirs(LOG_ROOT, exist_ok=True)
@@ -199,10 +213,9 @@ def main_worker(gpu, ngpus_per_node, cfg):
     # train
     for epoch in range(cfg['START_EPOCH'], cfg['NUM_EPOCH']):
         train_sampler.set_epoch(epoch)
-        adjust_learning_rate(optimizer, epoch, cfg)
-
+        scheduler.step()
+        
         #train for one epoch
-        #train(train_loader, backbone, head, loss, optimizer, epoch, cfg, writer)
         DISP_FREQ = 100  # 100 batch
         batch = 0  # batch index
         backbone.train()  # set to training mode
@@ -266,24 +279,18 @@ def main_worker(gpu, ngpus_per_node, cfg):
         
         # perform validation & save checkpoints per epoch
         # validation statistics per epoch (buffer for visualization)
-        if (epoch+1) % 5 == 0:
+        if (epoch+1) % 1 == 0:
             print("=" * 60)
-            print("Perform Evaluation on LFW, CFP_FF, CFP_FP, AgeDB, CALFW, CPLFW and VGG2_FP, and Save Checkpoints...")
+            print("Perform Evaluation on LFW, CFP_FP, AgeD and VGG2_FP, and Save Checkpoints...")
             accuracy_lfw, best_threshold_lfw, roc_curve_lfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, lfw, lfw_issame)
             buffer_val(writer, "LFW", accuracy_lfw, best_threshold_lfw, roc_curve_lfw, epoch + 1)
-            #accuracy_cfp_ff, best_threshold_cfp_ff, roc_curve_cfp_ff = perform_val(EMBEDDING_SIZE, batch_size, backbone, cfp_ff, cfp_ff_issame)
-            #buffer_val(writer, "CFP_FF", accuracy_cfp_ff, best_threshold_cfp_ff, roc_curve_cfp_ff, epoch + 1)
             accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, cfp_fp, cfp_fp_issame)
             buffer_val(writer, "CFP_FP", accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp, epoch + 1)
-            accuracy_agedb, best_threshold_agedb, roc_curve_agedb = perform_val(EMBEDDING_SIZE, batch_size, backbone, agedb_30, agedb_30_issame)
-            buffer_val(writer, "AgeDB", accuracy_agedb, best_threshold_agedb, roc_curve_agedb, epoch + 1)
-            accuracy_calfw, best_threshold_calfw, roc_curve_calfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, calfw, calfw_issame)
-            buffer_val(writer, "CALFW", accuracy_calfw, best_threshold_calfw, roc_curve_calfw, epoch + 1)
-            accuracy_cplfw, best_threshold_cplfw, roc_curve_cplfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, cplfw, cplfw_issame)
-            buffer_val(writer, "CPLFW", accuracy_cplfw, best_threshold_cplfw, roc_curve_cplfw, epoch + 1)
+            accuracy_agedb_30, best_threshold_agedb_30, roc_curve_agedb_30 = perform_val(EMBEDDING_SIZE, batch_size, backbone, agedb_30, agedb_30_issame)
+            buffer_val(writer, "AgeDB", accuracy_agedb_30, best_threshold_agedb_30, roc_curve_agedb_30, epoch + 1)
             accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, vgg2_fp, vgg2_fp_issame)
             buffer_val(writer, "VGGFace2_FP", accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp, epoch + 1)
-            print("Epoch {}/{}, Evaluation: LFW Acc: {}, CFP_FP Acc: {}, AgeDB Acc: {}, CALFW Acc: {}, CPLFW Acc: {}, VGG2_FP Acc: {}".format(epoch + 1, NUM_EPOCH, accuracy_lfw, accuracy_cfp_fp, accuracy_agedb, accuracy_calfw, accuracy_cplfw, accuracy_vgg2_fp))
+            print("Epoch {}/{}, Evaluation: LFW Acc: {}, CFP_FP Acc: {}, AgeDB Acc: {}, VGG2_FP Acc: {}".format(epoch + 1, NUM_EPOCH, accuracy_lfw, accuracy_cfp_fp, accuracy_agedb_30, accuracy_vgg2_fp))
             print("=" * 60)
 
         print("=" * 60)
