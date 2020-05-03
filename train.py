@@ -13,6 +13,7 @@ from config import configurations
 from backbone.resnet import *
 from backbone.resnet_irse import *
 from backbone.mobilefacenet import *
+from backbone.ghostnet import *
 from head.metrics import *
 from loss.loss import *
 from util.utils import *
@@ -100,11 +101,13 @@ def main_worker(gpu, ngpus_per_node, cfg):
                      'IR_SE_101': IR_SE_101, 
                      'IR_SE_152': IR_SE_152,
                      'IR_SE_185': IR_SE_185,
-                     'IR_SE_200': IR_SE_200}
+                     'IR_SE_200': IR_SE_200,
+                     'GhostNet': ghost_net}
     BACKBONE_NAME = cfg['BACKBONE_NAME']
     INPUT_SIZE = cfg['INPUT_SIZE']
     assert INPUT_SIZE == [112, 112]
-    backbone = BACKBONE_DICT[BACKBONE_NAME](INPUT_SIZE)
+    EMBEDDING_SIZE = cfg['EMBEDDING_SIZE'] # feature dimension
+    backbone = BACKBONE_DICT[BACKBONE_NAME](INPUT_SIZE, emb_size=EMBEDDING_SIZE, neck_type=cfg["NECK"])
     print("=" * 60)
     print(backbone)
     print("{} Backbone Generated".format(BACKBONE_NAME))
@@ -118,7 +121,6 @@ def main_worker(gpu, ngpus_per_node, cfg):
                  'ArcNegFace': ArcNegFace,
                  'SVX': SVX}
     HEAD_NAME = cfg['HEAD_NAME']
-    EMBEDDING_SIZE = cfg['EMBEDDING_SIZE'] # feature dimension
     head = HEAD_DICT[HEAD_NAME](in_features = EMBEDDING_SIZE, out_features = NUM_CLASS)
     print("=" * 60)
     print(head)

@@ -7,7 +7,9 @@ Modified from https://github.com/d-li14/mobilenetv3.pytorch
 import torch
 import torch.nn as nn
 import math
-
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), 'neck'))
+from necks import get_neck
 
 __all__ = ['ghost_net']
 
@@ -108,7 +110,7 @@ class GhostBottleneck(nn.Module):
 
 
 class GhostNet(nn.Module):
-    def __init__(self, cfgs, width_mult=1.):
+    def __init__(self, cfgs, width_mult=1., emb_size=512, neck_type="FC"):
         super(GhostNet, self).__init__()
         # setting of inverted residual blocks
         self.cfgs = cfgs
@@ -139,13 +141,15 @@ class GhostNet(nn.Module):
             nn.ReLU(inplace=True),
         )
 
+        self.neck = get_neck(neck_type)(emb_size, output_channel)
+
         self._initialize_weights()
 
     def forward(self, x):
         x = self.features(x)
-        print(x.shape)
         x = self.squeeze(x)
-        return x
+        feat = self.neck(x)
+        return feat, x
 
     def _initialize_weights(self):
         for m in self.modules():
@@ -156,10 +160,11 @@ class GhostNet(nn.Module):
                 m.bias.data.zero_()
 
 
-def ghost_net(**kwargs):
+def ghost_net(input_size, **kwargs):
     """
     Constructs a MobileNetV3-Large model
     """
+    assert input_size[0] in [112, 224], "input_size should be [112, 112] or [224, 224]" 
     cfgs = [
         # k, t, c, SE, s 
         [3,  16,  16, 0, 1],

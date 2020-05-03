@@ -6,10 +6,9 @@ import torch.nn.functional as F
 from torch.nn import Parameter
 import math
 import sys, os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backbone'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from common import *
 
-__all__ = ['get_neck']
 
 body_size = [7,7]
 
