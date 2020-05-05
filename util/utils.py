@@ -147,6 +147,7 @@ def perform_val(embedding_size, batch_size, backbone, carray, issame, nrof_folds
     buf = gen_plot(fpr, tpr)
     roc_curve = Image.open(buf)
     roc_curve_tensor = transforms.ToTensor()(roc_curve)
+    backbone.train()
     return accuracy.mean(), best_thresholds.mean(), roc_curve_tensor
 
 def buffer_val(writer, db_name, acc, best_threshold, roc_curve_tensor, epoch):

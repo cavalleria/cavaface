@@ -131,3 +131,5 @@ dmypy.json
 # editor files
 .vscode/
 .history/
+core*
+*.log

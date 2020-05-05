@@ -4,11 +4,11 @@ configurations = {
     1: dict(
         SEED = 1337, # random seed for reproduce results
         
-        DATA_ROOT = '/home/dc2-user/datasets/facedata.mxnet/faces_webface_img', # the parent root where your train/val/test data are stored
-        RECORD_DIR = '/home/dc2-user/datasets/facedata.mxnet/faces_webface.txt', # the dataset record dir
-        VAL_DATA_ROOT = '/home/dc2-user/datasets/facedata.mxnet/face_val_data', # the parent root where your val/test data are stored
-        MODEL_ROOT = '/home/dc2-user/lyb/models/test_pytorch/model', # the root to buffer your checkpoints
-        LOG_ROOT = '/home/dc2-user/lyb/models/test_pytorch/log', # the root to log your train/val status
+        DATA_ROOT = '../facedata.mxnet/ms1m-retinaface-t1-clean-img', # the parent root where your train/val/test data are stored
+        RECORD_DIR = '../facedata.mxnet/ms1m-retinaface-t1-clean.txt', # the dataset record dir
+        VAL_DATA_ROOT = '../facedata.mxnet/face_val_data', # the parent root where your val/test data are stored
+        MODEL_ROOT = '../models/test_pytorch/model', # the root to buffer your checkpoints
+        LOG_ROOT = '../models/test_pytorch/log', # the root to log your train/val status
         IS_RESUME = False,
         BACKBONE_RESUME_ROOT = "",
         HEAD_RESUME_ROOT = "",
@@ -21,16 +21,17 @@ configurations = {
         RGB_MEAN = [0.5, 0.5, 0.5], # for normalize inputs to [-1, 1]
         RGB_STD = [0.5, 0.5, 0.5],
         EMBEDDING_SIZE = 512, # feature dimension
-        BATCH_SIZE = 512,
+        BATCH_SIZE = 1024,
         DROP_LAST = True, # whether drop the last batch to ensure consistent batch_norm statistics
+        
         LR = 0.1, # initial LR
-        LR_SCHEDULER = 'muti_step', # step/muti_step/cosine
+        LR_SCHEDULER = 'multi_step', # step/multi_step/cosine
         START_EPOCH = 0, #start epoch
         NUM_EPOCH = 24, # total epoch number
         LR_STEP_SIZE = 10, # period of learning rate decay. 
         LR_DECAY_EPOCH = [10, 18, 22], # ms1m epoch stages to decay learning rate
         LR_DECAT_GAMMA = 0.1, # multiplicative factor of learning rate decay
-        LR_END = 0.0001, # minimum learning rate
+        LR_END = 1e-5, # minimum learning rate
         WEIGHT_DECAY = 5e-4, # do not apply to batch_norm parameters
         MOMENTUM = 0.9,
         
@@ -42,6 +43,6 @@ configurations = {
         NUM_WORKERS = 5,
         TEST_GPU_ID = [0,1,2,3,4,5,6,7],
 
-        USE_APEX = True
+        USE_APEX = False
     ),
 }

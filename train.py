@@ -60,6 +60,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
     batch_size = int(cfg['BATCH_SIZE'])
     per_batch_size = int(batch_size / ngpus_per_node)
     workers = int((cfg['NUM_WORKERS'] + ngpus_per_node - 1) / ngpus_per_node) # dataload threads
+    #workers = int(cfg['NUM_WORKERS'])
     DATA_ROOT = cfg['DATA_ROOT'] # the parent root where your train/val/test data are stored
     VAL_DATA_ROOT = cfg['VAL_DATA_ROOT']
     RECORD_DIR = cfg['RECORD_DIR']
@@ -144,8 +145,12 @@ def main_worker(gpu, ngpus_per_node, cfg):
     WEIGHT_DECAY = cfg['WEIGHT_DECAY']
     MOMENTUM = cfg['MOMENTUM']
     optimizer = optim.SGD([
-                            {'params': list(backbone.parameters()) + list(head.parameters()), 'weight_decay': WEIGHT_DECAY},
+                            {'params': list(backbone.parameters()) + list(head.parameters()), 'weight_decay': WEIGHT_DECAY}
                             ], lr = LR, momentum = MOMENTUM)
+    #optimizer = optim.SGD([
+    #                        {'params': backbone_paras_wo_bn + list(head.parameters()), 'weight_decay': WEIGHT_DECAY}, 
+    #                        {'params': backbone_paras_only_bn}
+    #                        ], lr = LR, momentum = MOMENTUM)
     if LR_SCHEDULER == 'step':
         scheduler = StepLR(optimizer, step_size=LR_STEP_SIZE, gamma=0.1)
     elif LR_SCHEDULER == 'multi_step':
@@ -214,7 +219,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
     for epoch in range(cfg['START_EPOCH'], cfg['NUM_EPOCH']):
         train_sampler.set_epoch(epoch)
         scheduler.step()
-        
+        lr = scheduler.get_lr()
+        print("Current lr", lr[0])
         #train for one epoch
         DISP_FREQ = 100  # 100 batch
         batch = 0  # batch index
@@ -260,6 +266,33 @@ def main_worker(gpu, ngpus_per_node, cfg):
                                 'Training Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
                                     epoch + 1, cfg['NUM_EPOCH'], batch + 1, len(train_loader), loss = losses, top1 = top1, top5 = top5))
                 print("=" * 60)
+
+            # perform validation & save checkpoints per epoch
+            # validation statistics per epoch (buffer for visualization)
+            if (batch + 1) % 2000 == 0:
+                lr = scheduler.get_lr()
+                print("Current lr", lr[0])
+                print("=" * 60)
+                print("Perform Evaluation on LFW, CFP_FP, AgeD and VGG2_FP, and Save Checkpoints...")
+                accuracy_lfw, best_threshold_lfw, roc_curve_lfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, lfw, lfw_issame)
+                buffer_val(writer, "LFW", accuracy_lfw, best_threshold_lfw, roc_curve_lfw, epoch + 1)
+                accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, cfp_fp, cfp_fp_issame)
+                buffer_val(writer, "CFP_FP", accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp, epoch + 1)
+                accuracy_agedb_30, best_threshold_agedb_30, roc_curve_agedb_30 = perform_val(EMBEDDING_SIZE, batch_size, backbone, agedb_30, agedb_30_issame)
+                buffer_val(writer, "AgeDB", accuracy_agedb_30, best_threshold_agedb_30, roc_curve_agedb_30, epoch + 1)
+                accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, vgg2_fp, vgg2_fp_issame)
+                buffer_val(writer, "VGGFace2_FP", accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp, epoch + 1)
+                print("Epoch {}/{}, Evaluation: LFW Acc: {}, CFP_FP Acc: {}, AgeDB Acc: {}, VGG2_FP Acc: {}".format(epoch + 1, NUM_EPOCH, accuracy_lfw, accuracy_cfp_fp, accuracy_agedb_30, accuracy_vgg2_fp))
+                print("=" * 60)
+
+                print("=" * 60)
+                print("Save Checkpoint...")
+                if cfg['RANK'] % ngpus_per_node == 0:
+                    torch.save(backbone.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, get_time())))
+                    save_dict = {'EPOCH': epoch+1,
+                                'HEAD': head.module.state_dict(),
+                                'OPTIMIZER': optimizer.state_dict()}
+                    torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
             sys.stdout.flush()
             batch += 1 # batch index
         epoch_loss = losses.avg
@@ -277,30 +310,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
             writer.add_scalar("Top1", top1.avg, epoch+1)
             writer.add_scalar("Top5", top5.avg, epoch+1)
         
-        # perform validation & save checkpoints per epoch
-        # validation statistics per epoch (buffer for visualization)
-        if (epoch+1) % 1 == 0:
-            print("=" * 60)
-            print("Perform Evaluation on LFW, CFP_FP, AgeD and VGG2_FP, and Save Checkpoints...")
-            accuracy_lfw, best_threshold_lfw, roc_curve_lfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, lfw, lfw_issame)
-            buffer_val(writer, "LFW", accuracy_lfw, best_threshold_lfw, roc_curve_lfw, epoch + 1)
-            accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, cfp_fp, cfp_fp_issame)
-            buffer_val(writer, "CFP_FP", accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp, epoch + 1)
-            accuracy_agedb_30, best_threshold_agedb_30, roc_curve_agedb_30 = perform_val(EMBEDDING_SIZE, batch_size, backbone, agedb_30, agedb_30_issame)
-            buffer_val(writer, "AgeDB", accuracy_agedb_30, best_threshold_agedb_30, roc_curve_agedb_30, epoch + 1)
-            accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, vgg2_fp, vgg2_fp_issame)
-            buffer_val(writer, "VGGFace2_FP", accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp, epoch + 1)
-            print("Epoch {}/{}, Evaluation: LFW Acc: {}, CFP_FP Acc: {}, AgeDB Acc: {}, VGG2_FP Acc: {}".format(epoch + 1, NUM_EPOCH, accuracy_lfw, accuracy_cfp_fp, accuracy_agedb_30, accuracy_vgg2_fp))
-            print("=" * 60)
-
-        print("=" * 60)
-        print("Save Checkpoint...")
-        if cfg['RANK'] % ngpus_per_node == 0:
-            torch.save(backbone.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, get_time())))
-            save_dict = {'EPOCH': epoch+1,
-                         'HEAD': head.module.state_dict(),
-                         'OPTIMIZER': optimizer.state_dict()}
-            torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
+        
     
 if __name__ == '__main__':
     main()
