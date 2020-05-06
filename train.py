@@ -137,21 +137,16 @@ def main_worker(gpu, ngpus_per_node, cfg):
    #--------------------optimizer-----------------------------
     if BACKBONE_NAME.find("IR") >= 0:
         backbone_paras_only_bn, backbone_paras_wo_bn = separate_irse_bn_paras(backbone) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
-        _, head_paras_wo_bn = separate_irse_bn_paras(head)
     else:
         backbone_paras_only_bn, backbone_paras_wo_bn = separate_resnet_bn_paras(backbone) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
-        _, head_paras_wo_bn = separate_resnet_bn_paras(head)
-
+    
     LR = cfg['LR'] # initial LR
     WEIGHT_DECAY = cfg['WEIGHT_DECAY']
     MOMENTUM = cfg['MOMENTUM']
     optimizer = optim.SGD([
-                            {'params': list(backbone.parameters()) + list(head.parameters()), 'weight_decay': WEIGHT_DECAY}
+                            {'params': backbone_paras_wo_bn + list(head.parameters()), 'weight_decay': WEIGHT_DECAY}, 
+                            {'params': backbone_paras_only_bn}
                             ], lr = LR, momentum = MOMENTUM)
-    #optimizer = optim.SGD([
-    #                        {'params': backbone_paras_wo_bn + list(head.parameters()), 'weight_decay': WEIGHT_DECAY}, 
-    #                        {'params': backbone_paras_only_bn}
-    #                        ], lr = LR, momentum = MOMENTUM)
     if LR_SCHEDULER == 'step':
         scheduler = StepLR(optimizer, step_size=LR_STEP_SIZE, gamma=LR_DECAT_GAMMA)
     elif LR_SCHEDULER == 'multi_step':
@@ -259,7 +254,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
             losses.update(lossx.data.item(), inputs.size(0))
             top1.update(prec1.data.item(), inputs.size(0))
             top5.update(prec5.data.item(), inputs.size(0))
-                # dispaly training loss & acc every DISP_FREQ
+            # dispaly training loss & acc every DISP_FREQ
             if ((batch + 1) % DISP_FREQ == 0) or batch == 0:
                 print("=" * 60)
                 print('Epoch {}/{} Batch {}/{}\t'

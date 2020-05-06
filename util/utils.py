@@ -46,7 +46,7 @@ def separate_irse_bn_paras(modules):
     paras_only_bn = []
     paras_wo_bn = []
     for layer in modules:
-        if 'model' in str(layer.__class__):
+        if 'resnet' in str(layer.__class__):
             continue
         if 'container' in str(layer.__class__):
             continue
