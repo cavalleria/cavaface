@@ -132,4 +132,7 @@ dmypy.json
 .vscode/
 .history/
 core*
-*.log
+*.log*
+.empty/
+xxx.py
+*.jpg

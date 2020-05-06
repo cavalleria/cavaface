@@ -59,8 +59,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
     # Data loading code
     batch_size = int(cfg['BATCH_SIZE'])
     per_batch_size = int(batch_size / ngpus_per_node)
-    workers = int((cfg['NUM_WORKERS'] + ngpus_per_node - 1) / ngpus_per_node) # dataload threads
-    #workers = int(cfg['NUM_WORKERS'])
+    #workers = int((cfg['NUM_WORKERS'] + ngpus_per_node - 1) / ngpus_per_node) # dataload threads
+    workers = int(cfg['NUM_WORKERS'])
     DATA_ROOT = cfg['DATA_ROOT'] # the parent root where your train/val/test data are stored
     VAL_DATA_ROOT = cfg['VAL_DATA_ROOT']
     RECORD_DIR = cfg['RECORD_DIR']
@@ -74,6 +74,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
     LR_END = cfg['LR_END']
     NUM_EPOCH = cfg['NUM_EPOCH']
     USE_APEX = cfg['USE_APEX']
+    EVAL_FREQ = cfg['EVAL_FREQ']
     print("=" * 60)
     print("Overall Configurations:")
     print(cfg)
@@ -152,11 +153,11 @@ def main_worker(gpu, ngpus_per_node, cfg):
     #                        {'params': backbone_paras_only_bn}
     #                        ], lr = LR, momentum = MOMENTUM)
     if LR_SCHEDULER == 'step':
-        scheduler = StepLR(optimizer, step_size=LR_STEP_SIZE, gamma=0.1)
+        scheduler = StepLR(optimizer, step_size=LR_STEP_SIZE, gamma=LR_DECAT_GAMMA)
     elif LR_SCHEDULER == 'multi_step':
-        scheduler = MultiStepLR(optimizer, milestones=LR_DECAY_EPOCH, gamma=0.1)
+        scheduler = MultiStepLR(optimizer, milestones=LR_DECAY_EPOCH, gamma=LR_DECAT_GAMMA)
     elif LR_SCHEDULER == 'cosine':
-        scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCH, eta_min=LR_END)
+        scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCH*len(train_loader), eta_min=LR_END)
     
     print("=" * 60)
     print(optimizer)
@@ -218,9 +219,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
     # train
     for epoch in range(cfg['START_EPOCH'], cfg['NUM_EPOCH']):
         train_sampler.set_epoch(epoch)
-        scheduler.step()
-        lr = scheduler.get_lr()
-        print("Current lr", lr[0])
+        if LR_SCHEDULER != 'cosine':
+            scheduler.step()
         #train for one epoch
         DISP_FREQ = 100  # 100 batch
         batch = 0  # batch index
@@ -230,6 +230,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
         top1 = AverageMeter()
         top5 = AverageMeter()
         for inputs, labels in tqdm(iter(train_loader)):
+            if LR_SCHEDULER == 'cosine':
+                scheduler.step()
             # compute output
             start_time=time.time()
             inputs = inputs.cuda(cfg['GPU'], non_blocking=True)
@@ -269,18 +271,19 @@ def main_worker(gpu, ngpus_per_node, cfg):
 
             # perform validation & save checkpoints per epoch
             # validation statistics per epoch (buffer for visualization)
-            if (batch + 1) % 2000 == 0:
-                lr = scheduler.get_lr()
-                print("Current lr", lr[0])
+            if (batch + 1) % EVAL_FREQ == 0:
+                #lr = scheduler.get_last_lr()
+                lr = optimizer.param_groups[0]['lr']
+                print("Current lr", lr)
                 print("=" * 60)
                 print("Perform Evaluation on LFW, CFP_FP, AgeD and VGG2_FP, and Save Checkpoints...")
-                accuracy_lfw, best_threshold_lfw, roc_curve_lfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, lfw, lfw_issame)
+                accuracy_lfw, best_threshold_lfw, roc_curve_lfw = perform_val(EMBEDDING_SIZE, per_batch_size, backbone, lfw, lfw_issame)
                 buffer_val(writer, "LFW", accuracy_lfw, best_threshold_lfw, roc_curve_lfw, epoch + 1)
-                accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, cfp_fp, cfp_fp_issame)
+                accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp = perform_val(EMBEDDING_SIZE, per_batch_size, backbone, cfp_fp, cfp_fp_issame)
                 buffer_val(writer, "CFP_FP", accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp, epoch + 1)
-                accuracy_agedb_30, best_threshold_agedb_30, roc_curve_agedb_30 = perform_val(EMBEDDING_SIZE, batch_size, backbone, agedb_30, agedb_30_issame)
+                accuracy_agedb_30, best_threshold_agedb_30, roc_curve_agedb_30 = perform_val(EMBEDDING_SIZE, per_batch_size, backbone, agedb_30, agedb_30_issame)
                 buffer_val(writer, "AgeDB", accuracy_agedb_30, best_threshold_agedb_30, roc_curve_agedb_30, epoch + 1)
-                accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, vgg2_fp, vgg2_fp_issame)
+                accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp = perform_val(EMBEDDING_SIZE, per_batch_size, backbone, vgg2_fp, vgg2_fp_issame)
                 buffer_val(writer, "VGGFace2_FP", accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp, epoch + 1)
                 print("Epoch {}/{}, Evaluation: LFW Acc: {}, CFP_FP Acc: {}, AgeDB Acc: {}, VGG2_FP Acc: {}".format(epoch + 1, NUM_EPOCH, accuracy_lfw, accuracy_cfp_fp, accuracy_agedb_30, accuracy_vgg2_fp))
                 print("=" * 60)
@@ -304,7 +307,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
                     epoch + 1, cfg['NUM_EPOCH'], loss = losses, top1 = top1, top5 = top5))
         sys.stdout.flush()
         print("=" * 60)
-        if cfg['RANK'] == 0:
+        if cfg['RANK'] % ngpus_per_node == 0:
             writer.add_scalar("Training_Loss", epoch_loss, epoch + 1)
             writer.add_scalar("Training_Accuracy", epoch_acc, epoch + 1)
             writer.add_scalar("Top1", top1.avg, epoch+1)
