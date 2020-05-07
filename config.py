@@ -19,7 +19,7 @@ configurations = {
         INPUT_SIZE = [112, 112], # support: [112, 112] and [224, 224]
         RGB_MEAN = [0.5, 0.5, 0.5], # for normalize inputs to [-1, 1]
         RGB_STD = [0.5, 0.5, 0.5],
-        EMBEDDING_SIZE = 256, # feature dimension
+        EMBEDDING_SIZE = 512, # feature dimension
         BATCH_SIZE = 512,
         DROP_LAST = True, # whether drop the last batch to ensure consistent batch_norm statistics
         LR = 0.1, # initial LR
@@ -29,7 +29,8 @@ configurations = {
         MOMENTUM = 0.9,
         STAGES = [10, 18, 22], # ms1m epoch stages to decay learning rate
 
-        NECK = "FC",
+        EVAL_FREQ = 20,
+        NECK = "FC", # support: ['E', 'F', 'G', 'H', 'I', 'J', 'Z', 'FC', 'GAP', 'GNAP', 'GDC']
         
         WORLD_SIZE = 1,
         RANK = 0,
@@ -39,6 +40,6 @@ configurations = {
         NUM_WORKERS = 5,
         TEST_GPU_ID = [0,1,2,3,4,5,6,7],
 
-        USE_APEX = True
+        USE_APEX = False
     ),
 }
