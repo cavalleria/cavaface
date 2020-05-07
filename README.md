@@ -58,7 +58,7 @@ The training data containing the annotation (and the models trained with these d
     * [x] Apex
   * **Optimizer**
     * [x] LR_Scheduler([faireq](https://github.com/pytorch/fairseq/tree/master/fairseq/optim/lr_scheduler),[rwightman](https://github.com/rwightman/pytorch-image-models/tree/master/timm/scheduler))
-    * [ ] Optim(SGD,Adam)
+    * [ ] Optim(SGD,Adam,[LookAhead](https://github.com/lonePatient/lookahead_pytorch))
   * **[Data Augmentation](https://github.com/albumentations-team/albumentations)**
     * [ ] Blur
     * [ ] Motion
