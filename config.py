@@ -27,7 +27,7 @@ configurations = {
         RGB_MEAN = [0.5, 0.5, 0.5], # for normalize inputs to [-1, 1]
         RGB_STD = [0.5, 0.5, 0.5],
         EMBEDDING_SIZE = 512, # feature dimension
-        BATCH_SIZE = 1024,
+        BATCH_SIZE = 512,
         DROP_LAST = True, # whether drop the last batch to ensure consistent batch_norm statistics
         
         LR = 0.1, # initial LR
@@ -52,6 +52,7 @@ configurations = {
         DIST_URL = 'tcp://localhost:23456',
         NUM_WORKERS = 5,
         TEST_GPU_ID = [0,1,2,3,4,5,6,7],
+        VAL_SET = ['lfw', 'cfp_fp', 'agedb_30'], # support ['lfw', 'cfp_fp', 'agedb_30', 'calfw', 'cplfw', 'vgg2_fp']
 
         USE_APEX = False
     ),

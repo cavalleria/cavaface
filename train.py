@@ -47,7 +47,9 @@ def main():
     world_size = cfg['WORLD_SIZE']
     cfg['WORLD_SIZE'] = ngpus_per_node * world_size
     VAL_DATA_ROOT = cfg['VAL_DATA_ROOT']
-    valdata = get_val_data(VAL_DATA_ROOT)
+    if not isinstance(cfg['VAL_SET'], list):
+        cfg['VAL_SET'] = [cfg['VAL_SET']]
+    valdata = get_val_data(VAL_DATA_ROOT, cfg['VAL_SET'])
 
     mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, cfg, valdata))
     
@@ -94,9 +96,7 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
     SAMPLE_NUMS = dataset_train.get_sample_num_of_each_class()
     NUM_CLASS = len(train_loader.dataset.classes)
     print("Number of Training Classes: {}".format(NUM_CLASS))
-    
-    lfw, cfp_fp, agedb_30, calfw, cplfw, vgg2_fp, lfw_issame, cfp_fp_issame, agedb_30_issame, calfw_issame, cplfw_issame, vgg2_fp_issame = valdata
- 
+     
     #======= model & loss & optimizer =======#
     BACKBONE_DICT = {'MobileFaceNet': MobileFaceNet,
                      'ResNet_50': ResNet_50, 
@@ -219,38 +219,21 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
 
     def evaluate():
         print("=" * 60)
-        print("Perform Evaluation on LFW, CFP_FF, CFP_FP, AgeDB, CALFW, CPLFW and VGG2_FP, and Save Checkpoints...")
+        print("Perform Evaluation on %s, and Save Checkpoints..."%(','.join([v[2] for v in valdata])))
         sys.stdout.flush()
-        accuracy_lfw, best_threshold_lfw, roc_curve_lfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, lfw, lfw_issame)
-        print("lfw eval done")
-        sys.stdout.flush()
-        buffer_val(writer, "LFW", accuracy_lfw, best_threshold_lfw, roc_curve_lfw, epoch + 1)
-        #accuracy_cfp_ff, best_threshold_cfp_ff, roc_curve_cfp_ff = perform_val(EMBEDDING_SIZE, batch_size, backbone, cfp_ff, cfp_ff_issame)
-        #buffer_val(writer, "CFP_FF", accuracy_cfp_ff, best_threshold_cfp_ff, roc_curve_cfp_ff, epoch + 1)
-        accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, cfp_fp, cfp_fp_issame)
-        print("cfp_fp eval done")
-        sys.stdout.flush()
-        buffer_val(writer, "CFP_FP", accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp, epoch + 1)
-        accuracy_agedb, best_threshold_agedb, roc_curve_agedb = perform_val(EMBEDDING_SIZE, batch_size, backbone, agedb_30, agedb_30_issame)
-        print("agedb_30 eval done")
-        sys.stdout.flush()
-        buffer_val(writer, "AgeDB", accuracy_agedb, best_threshold_agedb, roc_curve_agedb, epoch + 1)
-        #accuracy_calfw, best_threshold_calfw, roc_curve_calfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, calfw, calfw_issame)
-        #print("calfw eval done")
-        #sys.stdout.flush()
-        #buffer_val(writer, "CALFW", accuracy_calfw, best_threshold_calfw, roc_curve_calfw, epoch + 1)
-        #accuracy_cplfw, best_threshold_cplfw, roc_curve_cplfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, cplfw, cplfw_issame)
-        #print("cplfw eval done")
-        #sys.stdout.flush()
-        #buffer_val(writer, "CPLFW", accuracy_cplfw, best_threshold_cplfw, roc_curve_cplfw, epoch + 1)
-        accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, vgg2_fp, vgg2_fp_issame)
-        print("vgg2_fp eval done")
-        sys.stdout.flush()
-        buffer_val(writer, "VGGFace2_FP", accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp, epoch + 1)
-        print("Epoch {}/{}, Evaluation: LFW Acc: {}, CFP_FP Acc: {}, AgeDB Acc: {}, CALFW Acc: {}, CPLFW Acc: {}, VGG2_FP Acc: {}".format(epoch + 1, NUM_EPOCH, accuracy_lfw, accuracy_cfp_fp, accuracy_agedb, accuracy_calfw, accuracy_cplfw, accuracy_vgg2_fp))
+        acc_str = ""
+        for v in valdata:
+            accuracy, best_threshold, roc_curve = perform_val(EMBEDDING_SIZE, batch_size, backbone, v[0], v[1])
+            buffer_val(writer, "%s"%(v[2]), accuracy, best_threshold, roc_curve, epoch + 1)
+            print("%s eval done"%(v[2]))
+            sys.stdout.flush()
+            acc_str = acc_str + "%s Acc: %f"%(v[2], accuracy)
+        print("Epoch {}/{}, Evaluation: {}".format(epoch + 1, NUM_EPOCH, acc_str))
         print("=" * 60)
+        sys.stdout.flush()
 
     # train
+    global_step = 0
     for epoch in range(cfg['START_EPOCH'], cfg['NUM_EPOCH']):
         train_sampler.set_epoch(epoch)
         if LR_SCHEDULER != 'cosine':
@@ -297,7 +280,7 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
             top1.update(prec1.data.item(), inputs.size(0))
             top5.update(prec5.data.item(), inputs.size(0))
             # dispaly training loss & acc every DISP_FREQ
-            if ((batch + 1) % DISP_FREQ == 0) or batch == 0:
+            if DISP_FREQ > 0 and ((batch + 1) % DISP_FREQ == 0) or batch == 0:
                 print("=" * 60)
                 print('Epoch {}/{} Batch {}/{}\t'
                                 'Training Loss {loss.val:.4f} ({loss.avg:.4f})\t'
@@ -308,7 +291,7 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
 
             # perform validation & save checkpoints per epoch
             # validation statistics per epoch (buffer for visualization)
-            if (batch + 1) % EVAL_FREQ == 0:
+            if (global_step + 1) % EVAL_FREQ == 0:
                 #lr = scheduler.get_last_lr()
                 lr = optimizer.param_groups[0]['lr']
                 print("Current lr", lr)
@@ -324,6 +307,7 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
                     torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
             sys.stdout.flush()
             batch += 1 # batch index
+            global_step += 1
    
         epoch_loss = losses.avg
         epoch_acc = top1.avg
