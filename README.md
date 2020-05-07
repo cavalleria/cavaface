@@ -73,8 +73,8 @@ The training data containing the annotation (and the models trained with these d
     * [ ] KnowledgeDistillation
     * [ ] Multi Feature KD
   * **Bag of Tricks**
-    * [ ] Label smooth
-    * [ ] LR warmup
+    * [x] Label smooth
+    * [x] LR warmup
     * [ ] Zero gamma
 
 ## Usage

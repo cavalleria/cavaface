@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import random
 import numpy as np
 import scipy
 import pickle
@@ -31,20 +32,19 @@ from apex import amp
 from util.flops_counter import *
 from optimizer.lr_scheduler import *
 
-def adjust_learning_rate(optimizer, epoch, cfg):
-    """Decay the learning rate based on schedule"""
-    lr = cfg['LR']
-    for milestone in cfg['STAGES']:
-        lr *= 0.1 if epoch >= milestone else 1.
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)  
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)       
+    torch.cuda.manual_seed_all(seed)
 
 def main():
     cfg = configurations[1]
     SEED = cfg['SEED'] # random seed for reproduce results
-    torch.manual_seed(SEED)
-    torch.backends.cudnn.deterministic = True
+    set_seed(int(SEED))
     torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.deterministic = True
     ngpus_per_node = len(cfg['GPU'])
     world_size = cfg['WORLD_SIZE']
     cfg['WORLD_SIZE'] = ngpus_per_node * world_size
@@ -171,9 +171,10 @@ def main_worker(gpu, ngpus_per_node, cfg):
   
     # loss
     LOSS_NAME = cfg['LOSS_NAME']
-    LOSS_DICT = {'Softmax': nn.CrossEntropyLoss(),
-                 'Focal'  : FocalLoss(),
-                 'HM'     : HardMining()}
+    LOSS_DICT = {'Softmax'      : nn.CrossEntropyLoss(),
+                 'LabelSmooth'  : LabelSmoothCrossEntropyLoss(classes=NUM_CLASS,smoothing=0.1),
+                 'Focal'        : FocalLoss(),
+                 'HM'           : HardMining()}
     loss = LOSS_DICT[LOSS_NAME].cuda(gpu)
     print("=" * 60)
     print(loss)
