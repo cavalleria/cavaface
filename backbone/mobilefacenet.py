@@ -5,6 +5,9 @@ import torch.nn as nn
 from collections import namedtuple
 import math
 import pdb
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), 'neck'))
+from necks import get_neck
 
 ##################################  Original Arcface Model #############################################################
 
@@ -102,9 +105,9 @@ class GDC(Module):
         return x
 
 class MobileFaceNet(Module):
-    def __init__(self, input_size, embedding_size = 512, output_name = "GDC"):
+    def __init__(self, input_size, emb_size = 512, neck_type = "GDC"):
         super(MobileFaceNet, self).__init__()
-        assert output_name in ["GNAP", 'GDC']
+        #assert output_name in ["GNAP", 'GDC']
         assert input_size[0] in [112]
         self.conv1 = Conv_block(3, 64, kernel=(3, 3), stride=(2, 2), padding=(1, 1))
         self.conv2_dw = Conv_block(64, 64, kernel=(3, 3), stride=(1, 1), padding=(1, 1), groups=64)
@@ -115,10 +118,7 @@ class MobileFaceNet(Module):
         self.conv_45 = Depth_Wise(128, 128, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=512)
         self.conv_5 = Residual(128, num_block=2, groups=256, kernel=(3, 3), stride=(1, 1), padding=(1, 1))
         self.conv_6_sep = Conv_block(128, 512, kernel=(1, 1), stride=(1, 1), padding=(0, 0))
-        if output_name == "GNAP":
-            self.output_layer = GNAP(512)
-        else:
-            self.output_layer = GDC(embedding_size)
+        self.neck = get_neck(neck_type)(emb_size, 512)
 
         self._initialize_weights()
 
@@ -155,5 +155,5 @@ class MobileFaceNet(Module):
         out = self.conv_5(out)
 
         conv_features = self.conv_6_sep(out)
-        out = self.output_layer(conv_features)
+        out = self.neck(conv_features)
         return out, conv_features

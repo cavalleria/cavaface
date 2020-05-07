@@ -227,7 +227,7 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
             buffer_val(writer, "%s"%(v[2]), accuracy, best_threshold, roc_curve, epoch + 1)
             print("%s eval done"%(v[2]))
             sys.stdout.flush()
-            acc_str = acc_str + "%s Acc: %f"%(v[2], accuracy)
+            acc_str = acc_str + "%s Acc: %.4f, "%(v[2], accuracy*100)
         print("Epoch {}/{}, Evaluation: {}".format(epoch + 1, NUM_EPOCH, acc_str))
         print("=" * 60)
         sys.stdout.flush()
@@ -249,81 +249,88 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
         losses = AverageMeter()
         top1 = AverageMeter()
         top5 = AverageMeter()
-        for inputs, labels in tqdm(iter(train_loader)):
-            if LR_SCHEDULER == 'cosine':
-                scheduler.step()
-            # compute output
-            start_time=time.time()
-            inputs = inputs.cuda(cfg['GPU'], non_blocking=True)
-            labels = labels.cuda(cfg['GPU'], non_blocking=True)
-            features, conv_features = backbone(inputs)
+        with tqdm(total=len(train_loader), desc=cfg['BACKBONE_NAME'], unit=' samples', unit_scale=batch_size, 
+            bar_format='{desc}: {percentage:3.0f}% |{bar}| {rate_fmt} | {postfix}', dynamic_ncols=True) as t:
+            for inputs, labels in iter(train_loader):
+                if LR_SCHEDULER == 'cosine':
+                    scheduler.step()
+                # compute output
+                start_time=time.time()
+                inputs = inputs.cuda(cfg['GPU'], non_blocking=True)
+                labels = labels.cuda(cfg['GPU'], non_blocking=True)
+                features, conv_features = backbone(inputs)
 
-            outputs = head(features, labels)
-            lossx = loss(outputs, labels)
-            end_time = time.time()
-            duration = end_time - start_time
-            if DISP_FREQ > 0 and ((batch + 1) % DISP_FREQ == 0) and batch != 0:
-                print("batch inference time", duration)
+                outputs = head(features, labels)
+                lossx = loss(outputs, labels)
+                end_time = time.time()
+                duration = end_time - start_time
+                if DISP_FREQ > 0 and ((batch + 1) % DISP_FREQ == 0) and batch != 0:
+                    print("batch inference time", duration)
 
-            # compute gradient and do SGD step
-            optimizer.zero_grad()
-            if USE_APEX:
-                with amp.scale_loss(lossx, optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            else:
-                lossx.backward()
-            optimizer.step()
-            
-            # measure accuracy and record loss
-            prec1, prec5 = accuracy(outputs.data, labels, topk = (1, 5))
-            losses.update(lossx.data.item(), inputs.size(0))
-            top1.update(prec1.data.item(), inputs.size(0))
-            top5.update(prec5.data.item(), inputs.size(0))
-            # dispaly training loss & acc every DISP_FREQ
-            if DISP_FREQ > 0 and ((batch + 1) % DISP_FREQ == 0) or batch == 0:
-                print("=" * 60)
-                print('Epoch {}/{} Batch {}/{}\t'
-                                'Training Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                                'Training Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                                'Training Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                                    epoch + 1, cfg['NUM_EPOCH'], batch + 1, len(train_loader), loss = losses, top1 = top1, top5 = top5))
-                print("=" * 60)
+                # compute gradient and do SGD step
+                optimizer.zero_grad()
+                if USE_APEX:
+                    with amp.scale_loss(lossx, optimizer) as scaled_loss:
+                        scaled_loss.backward()
+                else:
+                    lossx.backward()
+                optimizer.step()
+                
+                # measure accuracy and record loss
+                prec1, prec5 = accuracy(outputs.data, labels, topk = (1, 5))
+                losses.update(lossx.data.item(), inputs.size(0))
+                top1.update(prec1.data.item(), inputs.size(0))
+                top5.update(prec5.data.item(), inputs.size(0))
+                # tqdm update
+                t.set_postfix_str('batch {}/{} | loss={:.3f} top1={:.3f} top5={:.3f}'.format(
+                                    batch, len(train_loader), lossx.data.item(), prec1.data.item(),prec5.data.item()))
 
-            # perform validation & save checkpoints per epoch
-            # validation statistics per epoch (buffer for visualization)
-            if (global_step + 1) % EVAL_FREQ == 0:
-                #lr = scheduler.get_last_lr()
-                lr = optimizer.param_groups[0]['lr']
-                print("Current lr", lr)
-                evaluate()
+                # dispaly training loss & acc every DISP_FREQ
+                if DISP_FREQ > 0 and ((batch + 1) % DISP_FREQ == 0) or batch == 0:
+                    print("=" * 60)
+                    print('Epoch {}/{} Batch {}/{}\t'
+                                    'Training Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                                    'Training Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                                    'Training Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                                        epoch + 1, cfg['NUM_EPOCH'], batch + 1, len(train_loader), loss = losses, top1 = top1, top5 = top5))
+                    print("=" * 60)
 
-                print("=" * 60)
-                print("Save Checkpoint...")
-                if cfg['RANK'] % ngpus_per_node == 0:
-                    torch.save(backbone.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, get_time())))
-                    save_dict = {'EPOCH': epoch+1,
-                                'HEAD': head.module.state_dict(),
-                                'OPTIMIZER': optimizer.state_dict()}
-                    torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
+                # perform validation & save checkpoints per epoch
+                # validation statistics per epoch (buffer for visualization)
+                if (global_step + 1) % EVAL_FREQ == 0:
+                    #lr = scheduler.get_last_lr()
+                    lr = optimizer.param_groups[0]['lr']
+                    print("Current lr", lr)
+                    evaluate()
+
+                    print("=" * 60)
+                    print("Save Checkpoint...")
+                    if cfg['RANK'] % ngpus_per_node == 0:
+                        torch.save(backbone.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, get_time())))
+                        save_dict = {'EPOCH': epoch+1,
+                                    'HEAD': head.module.state_dict(),
+                                    'OPTIMIZER': optimizer.state_dict()}
+                        torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
+                sys.stdout.flush()
+                batch += 1 # batch index
+                global_step += 1
+                t.update()
+    
+            epoch_loss = losses.avg
+            epoch_acc = top1.avg
+            print("=" * 60)
+            print('Epoch: {}/{}\t''Training Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                    'Training Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                    'Training Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                        epoch + 1, cfg['NUM_EPOCH'], loss = losses, top1 = top1, top5 = top5))
             sys.stdout.flush()
-            batch += 1 # batch index
-            global_step += 1
-   
-        epoch_loss = losses.avg
-        epoch_acc = top1.avg
-        print("=" * 60)
-        print('Epoch: {}/{}\t''Training Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                'Training Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                'Training Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                    epoch + 1, cfg['NUM_EPOCH'], loss = losses, top1 = top1, top5 = top5))
-        sys.stdout.flush()
-        print("=" * 60)
-        if cfg['RANK'] % ngpus_per_node == 0:
-            writer.add_scalar("Training_Loss", epoch_loss, epoch + 1)
-            writer.add_scalar("Training_Accuracy", epoch_acc, epoch + 1)
-            writer.add_scalar("Top1", top1.avg, epoch+1)
-            writer.add_scalar("Top5", top5.avg, epoch+1)
-        
+            print("=" * 60)
+            if cfg['RANK'] % ngpus_per_node == 0:
+                writer.add_scalar("Training_Loss", epoch_loss, epoch + 1)
+                writer.add_scalar("Training_Accuracy", epoch_acc, epoch + 1)
+                writer.add_scalar("Top1", top1.avg, epoch+1)
+                writer.add_scalar("Top5", top5.avg, epoch+1)
+            
     
 if __name__ == '__main__':
     main()

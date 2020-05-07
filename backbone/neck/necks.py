@@ -153,13 +153,11 @@ class neck_GNAP(BaseNeck): # mobilefacenet++
         x = self.conv1_bn_act(x)
         x = self.bn(x)
 
-        spatial_norm = torch.sum(x*x, dim=1, keepdim=True)
-        spatial_sqrt = torch.sqrt(spatial_norm)
-        spatial_mean = torch.mean(spatial_sqrt) 
-        spatial_div_inverse = spatial_mean / spatial_sqrt
-        spatial_attention_inverse = spatial_div_inverse.repeat(1, self.filters_in, 1, 1)
+        x_norm = torch.norm(x, 2, 1, True)
+        x_norm_mean = torch.mean(x_norm)
+        weight = x_norm_mean / x_norm
+        x = x * weight
 
-        x = x * spatial_attention_inverse
         x = self.pool(x)
         return self.fc1(x)
 
