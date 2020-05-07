@@ -2,6 +2,7 @@ import numpy as np
 import torch
 
 from PIL import Image
+import cv2
 from torch.utils.data import Dataset
 import os
 from collections import defaultdict
@@ -93,6 +94,10 @@ class FaceDataset(Dataset):
         path, target = self.imgs[index]
         sample = Image.open(path)
         sample = sample.convert("RGB")
+        #using opencv
+        #sample = cv2.imread(path, cv2.IMREAD_COLOR)
+        #sample = cv2.cvtColor(sample, cv2.COLOR_BGR2RGB)
+        #sample = Image.fromarray(sample)
         if self.transform is not None:
             sample = self.transform(sample)
         if self.train:

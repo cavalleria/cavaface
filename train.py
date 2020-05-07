@@ -8,7 +8,7 @@ import torchvision.datasets as datasets
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn.functional as F
-
+from torch.optim.lr_scheduler import StepLR, MultiStepLR, CosineAnnealingLR
 from config import configurations
 from backbone.resnet import *
 from backbone.resnet_irse import *
@@ -43,7 +43,7 @@ def main():
     torch.manual_seed(SEED)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = True
-    ngpus_per_node = torch.cuda.device_count()
+    ngpus_per_node = len(cfg['GPU'])
     world_size = cfg['WORLD_SIZE']
     cfg['WORLD_SIZE'] = ngpus_per_node * world_size
     VAL_DATA_ROOT = cfg['VAL_DATA_ROOT']
@@ -61,16 +61,24 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
     dist.init_process_group(backend=cfg['DIST_BACKEND'], init_method = cfg["DIST_URL"], world_size=cfg['WORLD_SIZE'], rank=cfg['RANK'])
     
     # Data loading code
-    batch_size = int(cfg['BATCH_SIZE'] / ngpus_per_node)
-    workers = int((cfg['NUM_WORKERS'] + ngpus_per_node - 1) / ngpus_per_node) # dataload threads
+    batch_size = int(cfg['BATCH_SIZE'])
+    per_batch_size = int(batch_size / ngpus_per_node)
+    #workers = int((cfg['NUM_WORKERS'] + ngpus_per_node - 1) / ngpus_per_node) # dataload threads
+    workers = int(cfg['NUM_WORKERS'])
     DATA_ROOT = cfg['DATA_ROOT'] # the parent root where your train/val/test data are stored
     VAL_DATA_ROOT = cfg['VAL_DATA_ROOT']
     RECORD_DIR = cfg['RECORD_DIR']
     RGB_MEAN = cfg['RGB_MEAN'] # for normalize inputs
     RGB_STD = cfg['RGB_STD']
     DROP_LAST = cfg['DROP_LAST']
+    LR_SCHEDULER = cfg['LR_SCHEDULER']
+    LR_STEP_SIZE = cfg['LR_STEP_SIZE']
+    LR_DECAY_EPOCH = cfg['LR_DECAY_EPOCH']
+    LR_DECAT_GAMMA = cfg['LR_DECAT_GAMMA']
+    LR_END = cfg['LR_END']
     NUM_EPOCH = cfg['NUM_EPOCH']
     USE_APEX = cfg['USE_APEX']
+    EVAL_FREQ = cfg['EVAL_FREQ']
     print("=" * 60)
     print("Overall Configurations:")
     print(cfg)
@@ -82,7 +90,7 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
                             std = RGB_STD),])
     dataset_train = FaceDataset(DATA_ROOT, RECORD_DIR, train_transform)
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
-    train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle = (train_sampler is None), num_workers=workers, pin_memory=True, sampler=train_sampler, drop_last=DROP_LAST)
+    train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=per_batch_size, shuffle = (train_sampler is None), num_workers=workers, pin_memory=True, sampler=train_sampler, drop_last=DROP_LAST)
     SAMPLE_NUMS = dataset_train.get_sample_num_of_each_class()
     NUM_CLASS = len(train_loader.dataset.classes)
     print("Number of Training Classes: {}".format(NUM_CLASS))
@@ -90,7 +98,8 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
     lfw, cfp_fp, agedb_30, calfw, cplfw, vgg2_fp, lfw_issame, cfp_fp_issame, agedb_30_issame, calfw_issame, cplfw_issame, vgg2_fp_issame = valdata
  
     #======= model & loss & optimizer =======#
-    BACKBONE_DICT = {'ResNet_50': ResNet_50, 
+    BACKBONE_DICT = {'MobileFaceNet': MobileFaceNet,
+                     'ResNet_50': ResNet_50, 
                      'ResNet_101': ResNet_101, 
                      'ResNet_152': ResNet_152,
                      'IR_50': IR_50, 
@@ -133,17 +142,23 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
    #--------------------optimizer-----------------------------
     if BACKBONE_NAME.find("IR") >= 0:
         backbone_paras_only_bn, backbone_paras_wo_bn = separate_irse_bn_paras(backbone) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
-        _, head_paras_wo_bn = separate_irse_bn_paras(head)
     else:
         backbone_paras_only_bn, backbone_paras_wo_bn = separate_resnet_bn_paras(backbone) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
-        _, head_paras_wo_bn = separate_resnet_bn_paras(head)
-
+    
     LR = cfg['LR'] # initial LR
     WEIGHT_DECAY = cfg['WEIGHT_DECAY']
     MOMENTUM = cfg['MOMENTUM']
     optimizer = optim.SGD([
-                            {'params': backbone_paras_wo_bn + head_paras_wo_bn, 'weight_decay': WEIGHT_DECAY}
+                            {'params': backbone_paras_wo_bn + list(head.parameters()), 'weight_decay': WEIGHT_DECAY}, 
+                            {'params': backbone_paras_only_bn}
                             ], lr = LR, momentum = MOMENTUM)
+    if LR_SCHEDULER == 'step':
+        scheduler = StepLR(optimizer, step_size=LR_STEP_SIZE, gamma=LR_DECAT_GAMMA)
+    elif LR_SCHEDULER == 'multi_step':
+        scheduler = MultiStepLR(optimizer, milestones=LR_DECAY_EPOCH, gamma=LR_DECAT_GAMMA)
+    elif LR_SCHEDULER == 'cosine':
+        scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCH*len(train_loader), eta_min=LR_END)
+    
     print("=" * 60)
     print(optimizer)
     print("Optimizer Generated")
@@ -167,7 +182,8 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
     #optionally resume from a checkpoint 
     BACKBONE_RESUME_ROOT = cfg['BACKBONE_RESUME_ROOT'] # the root to resume training from a saved checkpoint
     HEAD_RESUME_ROOT = cfg['HEAD_RESUME_ROOT']  # the root to resume training from a saved checkpoint
-    if BACKBONE_RESUME_ROOT:
+    IS_RESUME = cfg['IS_RESUME']
+    if IS_RESUME:
         print("=" * 60)
         if os.path.isfile(BACKBONE_RESUME_ROOT):
             print("Loading Backbone Checkpoint '{}'".format(BACKBONE_RESUME_ROOT))
@@ -195,7 +211,6 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
      # checkpoint and tensorboard dir
     MODEL_ROOT = cfg['MODEL_ROOT'] # the root to buffer your checkpoints
     LOG_ROOT = cfg['LOG_ROOT'] # the root to log your train/val status
-    STAGES = cfg['STAGES'] # epoch stages to decay learning rate
     
     os.makedirs(MODEL_ROOT, exist_ok=True)
     os.makedirs(LOG_ROOT, exist_ok=True)
@@ -220,14 +235,14 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
         print("agedb_30 eval done")
         sys.stdout.flush()
         buffer_val(writer, "AgeDB", accuracy_agedb, best_threshold_agedb, roc_curve_agedb, epoch + 1)
-        accuracy_calfw, best_threshold_calfw, roc_curve_calfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, calfw, calfw_issame)
-        print("calfw eval done")
-        sys.stdout.flush()
-        buffer_val(writer, "CALFW", accuracy_calfw, best_threshold_calfw, roc_curve_calfw, epoch + 1)
-        accuracy_cplfw, best_threshold_cplfw, roc_curve_cplfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, cplfw, cplfw_issame)
-        print("cplfw eval done")
-        sys.stdout.flush()
-        buffer_val(writer, "CPLFW", accuracy_cplfw, best_threshold_cplfw, roc_curve_cplfw, epoch + 1)
+        #accuracy_calfw, best_threshold_calfw, roc_curve_calfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, calfw, calfw_issame)
+        #print("calfw eval done")
+        #sys.stdout.flush()
+        #buffer_val(writer, "CALFW", accuracy_calfw, best_threshold_calfw, roc_curve_calfw, epoch + 1)
+        #accuracy_cplfw, best_threshold_cplfw, roc_curve_cplfw = perform_val(EMBEDDING_SIZE, batch_size, backbone, cplfw, cplfw_issame)
+        #print("cplfw eval done")
+        #sys.stdout.flush()
+        #buffer_val(writer, "CPLFW", accuracy_cplfw, best_threshold_cplfw, roc_curve_cplfw, epoch + 1)
         accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp = perform_val(EMBEDDING_SIZE, batch_size, backbone, vgg2_fp, vgg2_fp_issame)
         print("vgg2_fp eval done")
         sys.stdout.flush()
@@ -238,12 +253,13 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
     # train
     for epoch in range(cfg['START_EPOCH'], cfg['NUM_EPOCH']):
         train_sampler.set_epoch(epoch)
-        adjust_learning_rate(optimizer, epoch, cfg)
-
+        if LR_SCHEDULER != 'cosine':
+            scheduler.step()
         #train for one epoch
         #train(train_loader, backbone, head, loss, optimizer, epoch, cfg, writer)
         DISP_FREQ = -1  # 100 batch
         EVAL_FREQ = cfg["EVAL_FREQ"]
+
         batch = 0  # batch index
         backbone.train()  # set to training mode
         head.train()
@@ -251,6 +267,8 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
         top1 = AverageMeter()
         top5 = AverageMeter()
         for inputs, labels in tqdm(iter(train_loader)):
+            if LR_SCHEDULER == 'cosine':
+                scheduler.step()
             # compute output
             start_time=time.time()
             inputs = inputs.cuda(cfg['GPU'], non_blocking=True)
@@ -278,7 +296,7 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
             losses.update(lossx.data.item(), inputs.size(0))
             top1.update(prec1.data.item(), inputs.size(0))
             top5.update(prec5.data.item(), inputs.size(0))
-                # dispaly training loss & acc every DISP_FREQ
+            # dispaly training loss & acc every DISP_FREQ
             if ((batch + 1) % DISP_FREQ == 0) or batch == 0:
                 print("=" * 60)
                 print('Epoch {}/{} Batch {}/{}\t'
@@ -287,12 +305,25 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
                                 'Training Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
                                     epoch + 1, cfg['NUM_EPOCH'], batch + 1, len(train_loader), loss = losses, top1 = top1, top5 = top5))
                 print("=" * 60)
+
+            # perform validation & save checkpoints per epoch
+            # validation statistics per epoch (buffer for visualization)
+            if (batch + 1) % EVAL_FREQ == 0:
+                #lr = scheduler.get_last_lr()
+                lr = optimizer.param_groups[0]['lr']
+                print("Current lr", lr)
+                evaluate()
+
+                print("=" * 60)
+                print("Save Checkpoint...")
+                if cfg['RANK'] % ngpus_per_node == 0:
+                    torch.save(backbone.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, get_time())))
+                    save_dict = {'EPOCH': epoch+1,
+                                'HEAD': head.module.state_dict(),
+                                'OPTIMIZER': optimizer.state_dict()}
+                    torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
             sys.stdout.flush()
             batch += 1 # batch index
-            
-            if (batch) % EVAL_FREQ == 0:
-                evaluate()
-    
    
         epoch_loss = losses.avg
         epoch_acc = top1.avg
@@ -303,25 +334,12 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
                     epoch + 1, cfg['NUM_EPOCH'], loss = losses, top1 = top1, top5 = top5))
         sys.stdout.flush()
         print("=" * 60)
-        if cfg['RANK'] == 0:
+        if cfg['RANK'] % ngpus_per_node == 0:
             writer.add_scalar("Training_Loss", epoch_loss, epoch + 1)
             writer.add_scalar("Training_Accuracy", epoch_acc, epoch + 1)
             writer.add_scalar("Top1", top1.avg, epoch+1)
             writer.add_scalar("Top5", top5.avg, epoch+1)
         
-        # perform validation & save checkpoints per epoch
-        # validation statistics per epoch (buffer for visualization)
-        if (epoch+1) % 1 == 0:
-            evaluate()
-
-        print("=" * 60)
-        print("Save Checkpoint...")
-        if cfg['RANK'] % ngpus_per_node == 0:
-            torch.save(backbone.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, get_time())))
-            save_dict = {'EPOCH': epoch+1,
-                         'HEAD': head.module.state_dict(),
-                         'OPTIMIZER': optimizer.state_dict()}
-            torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
     
 if __name__ == '__main__':
     main()

@@ -6,11 +6,11 @@ import torchvision.datasets as datasets
 
 import torch.nn.functional as F
 from config import configurations
-from backbone.model_resnet import ResNet_50, ResNet_101, ResNet_152
-from backbone.model_irse import IR_50, IR_101, IR_152, IR_SE_50, IR_SE_101, IR_SE_152
-from backbone.model_mobilefacenet import MobileFaceNet
+from backbone.resnet import *
+from backbone.resnet_irse import *
+from backbone.mobilefacenet import MobileFaceNet
 from head.metrics import ArcFace, CurricularFace
-from loss.focal import FocalLoss
+from loss.loss import FocalLoss
 from util.utils import get_val_data, perform_val, get_time, AverageMeter, accuracy
 from tqdm import tqdm
 import os
@@ -27,7 +27,7 @@ if __name__ == '__main__':
     SEED = cfg['SEED'] # random seed for reproduce results
     torch.manual_seed(SEED)
 
-    DATA_ROOT = cfg['DATA_ROOT'] # the parent root where your train/val/test data are stored
+    VAL_DATA_ROOT = cfg['VAL_DATA_ROOT'] # the parent root where your train/val/test data are stored
     BACKBONE_RESUME_ROOT = cfg['BACKBONE_RESUME_ROOT'] # the root to resume training from a saved checkpoint
     HEAD_RESUME_ROOT = cfg['HEAD_RESUME_ROOT']  # the root to resume training from a saved checkpoint
 
@@ -41,14 +41,16 @@ if __name__ == '__main__':
     GPU_ID = cfg['TEST_GPU_ID'] # specify your GPU ids
     print("Overall Configurations:")
     print(cfg)
-    val_data_dir = os.path.join(DATA_ROOT, 'val_data')
-    lfw, cfp_fp, agedb, cplfw, calfw, lfw_issame, cfp_fp_issame, agedb_issame, cplfw_issame, calfw_issame = get_val_data(val_data_dir)
+    #val_data_dir = os.path.join(VAL_DATA_ROOT, 'val_data')
+    val_data_dir = VAL_DATA_ROOT
+    lfw, cfp_fp, agedb_30, calfw, cplfw, vgg2_fp, lfw_issame, cfp_fp_issame, agedb_30_issame, calfw_issame, cplfw_issame, vgg2_fp_issame = get_val_data(VAL_DATA_ROOT)
 
     #======= model =======#
     BACKBONE_DICT = {'ResNet_50': ResNet_50, 
                      'ResNet_101': ResNet_101, 
                      'ResNet_152': ResNet_152,
                      'IR_50': IR_50, 
+                     'IR_100': IR_100,
                      'IR_101': IR_101, 
                      'IR_152': IR_152,
                      'IR_SE_50': IR_SE_50, 
@@ -78,7 +80,5 @@ if __name__ == '__main__':
 
     accuracy_lfw, best_threshold_lfw, roc_curve_lfw = perform_val(EMBEDDING_SIZE, BATCH_SIZE, BACKBONE, lfw, lfw_issame)
     accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp = perform_val(EMBEDDING_SIZE, BATCH_SIZE, BACKBONE, cfp_fp, cfp_fp_issame)
-    accuracy_agedb, best_threshold_agedb, roc_curve_agedb = perform_val(EMBEDDING_SIZE, BATCH_SIZE, BACKBONE, agedb, agedb_issame)
-    accuracy_calfw, best_threshold_calfw, roc_curve_calfw = perform_val(EMBEDDING_SIZE, BATCH_SIZE, BACKBONE, calfw, calfw_issame)
-    accuracy_cplfw, best_threshold_cplfw, roc_curve_cplfw = perform_val(EMBEDDING_SIZE, BATCH_SIZE, BACKBONE, cplfw, cplfw_issame)
-    print("Evaluation: LFW Acc: {}, CFP_FP Acc: {}, AgeDB Acc: {}, CPLFW Acc: {} CALFW Acc: {}".format(accuracy_lfw, accuracy_cfp_fp, accuracy_agedb, accuracy_cplfw, accuracy_calfw))
+    accuracy_agedb_30, best_threshold_agedb, roc_curve_agedb = perform_val(EMBEDDING_SIZE, BATCH_SIZE, BACKBONE, agedb_30, agedb_30_issame)
+    print("Evaluation: LFW Acc: {}, CFP_FP Acc: {}, AgeDB Acc: {}".format(accuracy_lfw, accuracy_cfp_fp, accuracy_agedb_30))

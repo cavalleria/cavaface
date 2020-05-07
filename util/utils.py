@@ -55,7 +55,7 @@ def separate_irse_bn_paras(modules):
     paras_only_bn = []
     paras_wo_bn = []
     for layer in modules:
-        if 'model' in str(layer.__class__):
+        if 'resnet' in str(layer.__class__):
             continue
         if 'container' in str(layer.__class__):
             continue
@@ -156,6 +156,7 @@ def perform_val(embedding_size, batch_size, backbone, carray, issame, nrof_folds
     buf = gen_plot(fpr, tpr)
     roc_curve = Image.open(buf)
     roc_curve_tensor = transforms.ToTensor()(roc_curve)
+    backbone.train()
     return accuracy.mean(), best_thresholds.mean(), roc_curve_tensor
 
 def buffer_val(writer, db_name, acc, best_threshold, roc_curve_tensor, epoch):
