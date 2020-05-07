@@ -22,13 +22,16 @@ configurations = {
         RGB_STD = [0.5, 0.5, 0.5],
         EMBEDDING_SIZE = 512, # feature dimension
         BATCH_SIZE = 1024,
+        EVAL_FREQ = 2000, #for ms1m, batch size 1024, EVAL_FREQ=2000
         DROP_LAST = True, # whether drop the last batch to ensure consistent batch_norm statistics
         
         LR = 0.1, # initial LR
-        LR_SCHEDULER = 'multi_step', # step/multi_step/cosine
+        LR_SCHEDULER = 'cosine', # step/multi_step/cosine
+        WARMUP_EPOCH = 0, 
+        WARMUP_LR = 0.0,
         START_EPOCH = 0, #start epoch
         NUM_EPOCH = 24, # total epoch number
-        LR_STEP_SIZE = 10, # period of learning rate decay. 
+        LR_STEP_SIZE = 10, # 'step' scheduler, period of learning rate decay. 
         LR_DECAY_EPOCH = [10, 18, 22], # ms1m epoch stages to decay learning rate
         LR_DECAT_GAMMA = 0.1, # multiplicative factor of learning rate decay
         LR_END = 1e-5, # minimum learning rate
@@ -40,7 +43,7 @@ configurations = {
         GPU = [0,1], # specify your GPU ids
         DIST_BACKEND = 'nccl', # 'nccl', 'gloo'
         DIST_URL = 'tcp://localhost:23456',
-        NUM_WORKERS = 5,
+        NUM_WORKERS = 2,
         TEST_GPU_ID = [0,1,2,3,4,5,6,7],
 
         USE_APEX = False
