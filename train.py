@@ -1,3 +1,9 @@
+import os
+import sys
+import time
+import numpy as np
+import scipy
+import pickle
 import builtins
 import torch
 import torch.nn as nn
@@ -19,14 +25,11 @@ from util.utils import *
 from dataset.datasets import FaceDataset
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
-import os
-import sys
-import time
-import numpy as np
-import scipy
-import pickle
+
 from apex.parallel import DistributedDataParallel as DDP
 from apex import amp
+from util.flops_counter import *
+from optimizer.lr_scheduler import *
 
 def adjust_learning_rate(optimizer, epoch, cfg):
     """Decay the learning rate based on schedule"""
@@ -72,6 +75,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
     LR_DECAY_EPOCH = cfg['LR_DECAY_EPOCH']
     LR_DECAT_GAMMA = cfg['LR_DECAT_GAMMA']
     LR_END = cfg['LR_END']
+    WARMUP_EPOCH = cfg['WARMUP_EPOCH']
+    WARMUP_LR = cfg['WARMUP_LR']
     NUM_EPOCH = cfg['NUM_EPOCH']
     USE_APEX = cfg['USE_APEX']
     EVAL_FREQ = cfg['EVAL_FREQ']
@@ -125,15 +130,20 @@ def main_worker(gpu, ngpus_per_node, cfg):
                  'Am_softmax': Am_softmax,
                  'CurricularFace': CurricularFace,
                  'ArcNegFace': ArcNegFace,
-                 'SVX': SVX}
+                 'SVX': SVXSoftmax,
+                 'AirFace': AirFace,
+                 'QAMFace': QAMFace}
     HEAD_NAME = cfg['HEAD_NAME']
     EMBEDDING_SIZE = cfg['EMBEDDING_SIZE'] # feature dimension
     head = HEAD_DICT[HEAD_NAME](in_features = EMBEDDING_SIZE, out_features = NUM_CLASS)
+    print("Params: ", count_model_params(backbone))
+    print("Flops:", count_model_flops(backbone))
     print("=" * 60)
     print(head)
     print("{} Head Generated".format(HEAD_NAME))
     print("=" * 60)
 
+    
    #--------------------optimizer-----------------------------
     if BACKBONE_NAME.find("IR") >= 0:
         backbone_paras_only_bn, backbone_paras_wo_bn = separate_irse_bn_paras(backbone) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
@@ -152,7 +162,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
     elif LR_SCHEDULER == 'multi_step':
         scheduler = MultiStepLR(optimizer, milestones=LR_DECAY_EPOCH, gamma=LR_DECAT_GAMMA)
     elif LR_SCHEDULER == 'cosine':
-        scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCH*len(train_loader), eta_min=LR_END)
+        scheduler = CosineWarmupLR(optimizer, batches=len(train_loader), epochs=NUM_EPOCH, base_lr=LR, target_lr=LR_END, warmup_epochs=WARMUP_EPOCH, warmup_lr=WARMUP_LR)
     
     print("=" * 60)
     print(optimizer)
