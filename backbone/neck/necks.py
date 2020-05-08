@@ -166,13 +166,12 @@ class neck_GDC(BaseNeck): # mobilefacenet_v1
         super(neck_GDC, self).__init__(emb_size, input_channel)
         # bn, relu, globalavgpool, flat, fc, bn
         self.fc1 = nn.Sequential(
-                nn.Conv2d(input_channel, input_channel, 7, 1, 0, bias=False),
+                nn.Conv2d(input_channel, input_channel, 7, 1, 0, bias=False, groups=input_channel),
                 nn.BatchNorm2d(input_channel, affine=True),
                 Flatten(),
-                nn.Linear(input_channel, emb_size),
+                nn.Linear(input_channel, emb_size, bias=False),
                 nn.BatchNorm1d(emb_size, affine=False)
         )
-
 
 
 supports = ['E', 'F', 'G', 'H', 'I', 'J', 'Z', 'FC', 'GAP', 'GNAP', 'GDC'] 
