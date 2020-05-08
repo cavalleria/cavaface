@@ -21,20 +21,23 @@ configurations = {
         
         BACKBONE_NAME = 'MobileFaceNet', # support: ['MobileFaceNet', 'ResNet_50', 'ResNet_101', 'ResNet_152', 'IR_50', 'IR_101', 'IR_152', 'IR_SE_50', 'IR_SE_101', 'IR_SE_152']
         HEAD_NAME = "ArcFace", # support:  ['Softmax', 'ArcFace', 'CosFace', 'SphereFace', 'Am_softmax', 'ArcNegFace', 'CurricularFace', 'SVX']
-        LOSS_NAME = 'Softmax', # support: [''Softmax', Focal', 'HardMining']
+        LOSS_NAME = 'Softmax', # support: [''Softmax', Focal', 'HardMining', 'LabelSmooth']
         
         INPUT_SIZE = [112, 112], # support: [112, 112] and [224, 224]
         RGB_MEAN = [0.5, 0.5, 0.5], # for normalize inputs to [-1, 1]
         RGB_STD = [0.5, 0.5, 0.5],
         EMBEDDING_SIZE = 512, # feature dimension
         BATCH_SIZE = 1024,
+        EVAL_FREQ = 2000, #for ms1m, batch size 1024, EVAL_FREQ=2000
         DROP_LAST = True, # whether drop the last batch to ensure consistent batch_norm statistics
         
         LR = 0.1, # initial LR
-        LR_SCHEDULER = 'multi_step', # step/multi_step/cosine
+        LR_SCHEDULER = 'cosine', # step/multi_step/cosine
+        WARMUP_EPOCH = 0, 
+        WARMUP_LR = 0.0,
         START_EPOCH = 0, #start epoch
         NUM_EPOCH = 24, # total epoch number
-        LR_STEP_SIZE = 10, # period of learning rate decay. 
+        LR_STEP_SIZE = 10, # 'step' scheduler, period of learning rate decay. 
         LR_DECAY_EPOCH = [10, 18, 22], # ms1m epoch stages to decay learning rate
         LR_DECAT_GAMMA = 0.1, # multiplicative factor of learning rate decay
         LR_END = 1e-5, # minimum learning rate

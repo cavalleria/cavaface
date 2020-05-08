@@ -416,7 +416,7 @@ class ArcNegFace(nn.Module):
                 t_scale[i]*=reweight.detach()
             return {'logits':self.scale * (a_scale*a+c_scale*(t_scale*cos+t_scale-1))}
 
-class SVX(nn.Module):
+class SVXSoftmax(nn.Module):
     r"""Implement of Mis-classified Vector Guided Softmax Loss for Face Recognition
         (https://arxiv.org/pdf/1912.00833.pdf):
         Args:
@@ -429,7 +429,7 @@ class SVX(nn.Module):
             cos(theta+m)
         """
     def __init__(self, in_features, out_features, xtype='MV-AM', s=32.0, m=0.35, t=0.2, easy_margin=False):
-        super(SVX, self).__init__()
+        super(SVXSoftmax, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
 

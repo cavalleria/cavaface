@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
+from .utils import *
 
 
-# Support: ['FocalLoss', 'HardMinding']
+# Support: ['FocalLoss', 'HardMinding', 'LabelSmoothCrossEntropyLoss']
 
 class FocalLoss(nn.Module):
     def __init__(self, gamma = 2, eps = 1e-7):
@@ -30,4 +31,18 @@ class HardMining(nn.Module):
         num_saved = int(self.save_rate * batch_size)
         ind_update = ind_sorted[:num_saved]
         loss_final = torch.sum(self.ce(input[ind_update], target[ind_update]))
+        return loss_final
+
+class LabelSmoothCrossEntropyLoss(nn.Module):
+    def __init__(self, classes, smoothing=0.0, dim=-1):
+        super(LabelSmoothCrossEntropyLoss, self).__init__()
+        self.confidence = 1.0 - smoothing
+        self.smoothing = smoothing
+        self.cls = classes
+        self.dim = dim
+
+    def forward(self, pred, target):
+        pred = pred.log_softmax(dim=self.dim)
+        true_dist = smooth_one_hot(target, self.cls, self.smoothing)
+        loss_final = torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
         return loss_final

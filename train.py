@@ -1,3 +1,10 @@
+import os
+import sys
+import time
+import random
+import numpy as np
+import scipy
+import pickle
 import builtins
 import torch
 import torch.nn as nn
@@ -20,29 +27,25 @@ from util.utils import *
 from dataset.datasets import FaceDataset
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
-import os
-import sys
-import time
-import numpy as np
-import scipy
-import pickle
+
 from apex.parallel import DistributedDataParallel as DDP
 from apex import amp
+from util.flops_counter import *
+from optimizer.lr_scheduler import *
 
-def adjust_learning_rate(optimizer, epoch, cfg):
-    """Decay the learning rate based on schedule"""
-    lr = cfg['LR']
-    for milestone in cfg['STAGES']:
-        lr *= 0.1 if epoch >= milestone else 1.
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)  
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)       
+    torch.cuda.manual_seed_all(seed)
 
 def main():
     cfg = configurations[1]
     SEED = cfg['SEED'] # random seed for reproduce results
-    torch.manual_seed(SEED)
-    torch.backends.cudnn.deterministic = True
+    set_seed(int(SEED))
     torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.deterministic = True
     ngpus_per_node = len(cfg['GPU'])
     world_size = cfg['WORLD_SIZE']
     cfg['WORLD_SIZE'] = ngpus_per_node * world_size
@@ -78,6 +81,8 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
     LR_DECAY_EPOCH = cfg['LR_DECAY_EPOCH']
     LR_DECAT_GAMMA = cfg['LR_DECAT_GAMMA']
     LR_END = cfg['LR_END']
+    WARMUP_EPOCH = cfg['WARMUP_EPOCH']
+    WARMUP_LR = cfg['WARMUP_LR']
     NUM_EPOCH = cfg['NUM_EPOCH']
     USE_APEX = cfg['USE_APEX']
     EVAL_FREQ = cfg['EVAL_FREQ']
@@ -131,14 +136,19 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
                  'Am_softmax': Am_softmax,
                  'CurricularFace': CurricularFace,
                  'ArcNegFace': ArcNegFace,
-                 'SVX': SVX}
+                 'SVX': SVXSoftmax,
+                 'AirFace': AirFace,
+                 'QAMFace': QAMFace}
     HEAD_NAME = cfg['HEAD_NAME']
     head = HEAD_DICT[HEAD_NAME](in_features = EMBEDDING_SIZE, out_features = NUM_CLASS)
+    print("Params: ", count_model_params(backbone))
+    print("Flops:", count_model_flops(backbone))
     print("=" * 60)
     print(head)
     print("{} Head Generated".format(HEAD_NAME))
     print("=" * 60)
 
+    
    #--------------------optimizer-----------------------------
     if BACKBONE_NAME.find("IR") >= 0:
         backbone_paras_only_bn, backbone_paras_wo_bn = separate_irse_bn_paras(backbone) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
@@ -157,7 +167,7 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
     elif LR_SCHEDULER == 'multi_step':
         scheduler = MultiStepLR(optimizer, milestones=LR_DECAY_EPOCH, gamma=LR_DECAT_GAMMA)
     elif LR_SCHEDULER == 'cosine':
-        scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCH*len(train_loader), eta_min=LR_END)
+        scheduler = CosineWarmupLR(optimizer, batches=len(train_loader), epochs=NUM_EPOCH, base_lr=LR, target_lr=LR_END, warmup_epochs=WARMUP_EPOCH, warmup_lr=WARMUP_LR)
     
     print("=" * 60)
     print(optimizer)
@@ -166,9 +176,10 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
   
     # loss
     LOSS_NAME = cfg['LOSS_NAME']
-    LOSS_DICT = {'Softmax': nn.CrossEntropyLoss(),
-                 'Focal'  : FocalLoss(),
-                 'HM'     : HardMining()}
+    LOSS_DICT = {'Softmax'      : nn.CrossEntropyLoss(),
+                 'LabelSmooth'  : LabelSmoothCrossEntropyLoss(classes=NUM_CLASS,smoothing=0.1),
+                 'Focal'        : FocalLoss(),
+                 'HM'           : HardMining()}
     loss = LOSS_DICT[LOSS_NAME].cuda(gpu)
     print("=" * 60)
     print(loss)
