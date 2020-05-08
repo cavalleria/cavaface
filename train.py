@@ -32,6 +32,7 @@ from apex.parallel import DistributedDataParallel as DDP
 from apex import amp
 from util.flops_counter import *
 from optimizer.lr_scheduler import *
+from optimizer.optimizer import *
 
 def set_seed(seed):
     random.seed(seed)
@@ -157,18 +158,20 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
     
     LR = cfg['LR'] # initial LR
     WEIGHT_DECAY = cfg['WEIGHT_DECAY']
-    MOMENTUM = cfg['MOMENTUM']
-    optimizer = optim.SGD([
-                            {'params': backbone_paras_wo_bn + list(head.parameters()), 'weight_decay': WEIGHT_DECAY}, 
+    optimizer = eval('optm_'+cfg['OPTIMIZER'])(cfg, 
+                            [{'params': backbone_paras_wo_bn + list(head.parameters()), 'weight_decay': WEIGHT_DECAY}, 
                             {'params': backbone_paras_only_bn}
-                            ], lr = LR, momentum = MOMENTUM)
-    if LR_SCHEDULER == 'step':
-        scheduler = StepLR(optimizer, step_size=LR_STEP_SIZE, gamma=LR_DECAT_GAMMA)
-    elif LR_SCHEDULER == 'multi_step':
-        scheduler = MultiStepLR(optimizer, milestones=LR_DECAY_EPOCH, gamma=LR_DECAT_GAMMA)
-    elif LR_SCHEDULER == 'cosine':
-        scheduler = CosineWarmupLR(optimizer, batches=len(train_loader), epochs=NUM_EPOCH, base_lr=LR, target_lr=LR_END, warmup_epochs=WARMUP_EPOCH, warmup_lr=WARMUP_LR)
+                            ])
     
+    scheduler = None
+    if cfg['OPTIMIZER'] in ['SGD']: # non-adaptive, set learning schedule
+        if LR_SCHEDULER == 'step':
+            scheduler = StepLR(optimizer, step_size=LR_STEP_SIZE, gamma=LR_DECAT_GAMMA)
+        elif LR_SCHEDULER == 'multi_step':
+            scheduler = MultiStepLR(optimizer, milestones=LR_DECAY_EPOCH, gamma=LR_DECAT_GAMMA)
+        elif LR_SCHEDULER == 'cosine':
+            scheduler = CosineWarmupLR(optimizer, batches=len(train_loader), epochs=NUM_EPOCH, base_lr=LR, target_lr=LR_END, warmup_epochs=WARMUP_EPOCH, warmup_lr=WARMUP_LR)
+        
     print("=" * 60)
     print(optimizer)
     print("Optimizer Generated")
@@ -247,7 +250,7 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
     global_step = 0
     for epoch in range(cfg['START_EPOCH'], cfg['NUM_EPOCH']):
         train_sampler.set_epoch(epoch)
-        if LR_SCHEDULER != 'cosine':
+        if LR_SCHEDULER is not None and LR_SCHEDULER != 'cosine':
             scheduler.step()
         #train for one epoch
         #train(train_loader, backbone, head, loss, optimizer, epoch, cfg, writer)
@@ -263,7 +266,7 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
         with tqdm(total=len(train_loader), desc=cfg['BACKBONE_NAME'], unit=' samples', unit_scale=batch_size, 
             bar_format='{desc}: {percentage:3.0f}% |{bar}| {rate_fmt} | {postfix}', dynamic_ncols=True) as t:
             for inputs, labels in iter(train_loader):
-                if LR_SCHEDULER == 'cosine':
+                if LR_SCHEDULER is not None and LR_SCHEDULER == 'cosine':
                     scheduler.step()
                 # compute output
                 start_time=time.time()

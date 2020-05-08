@@ -170,7 +170,7 @@ class neck_GDC(BaseNeck): # mobilefacenet_v1
                 nn.BatchNorm2d(input_channel, affine=True),
                 Flatten(),
                 nn.Linear(input_channel, emb_size, bias=False),
-                nn.BatchNorm1d(emb_size, affine=False)
+                nn.BatchNorm1d(emb_size, affine=True)
         )
 
 

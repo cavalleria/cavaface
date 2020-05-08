@@ -20,6 +20,7 @@ configurations = {
         HEAD_RESUME_ROOT = "",
         
         BACKBONE_NAME = 'MobileFaceNet', # support: ['MobileFaceNet', 'ResNet_50', 'ResNet_101', 'ResNet_152', 'IR_50', 'IR_101', 'IR_152', 'IR_SE_50', 'IR_SE_101', 'IR_SE_152']
+        NECK = "GDC", # support: ['E', 'F', 'G', 'H', 'I', 'J', 'Z', 'FC', 'GAP', 'GNAP', 'GDC']
         HEAD_NAME = "ArcFace", # support:  ['Softmax', 'ArcFace', 'CosFace', 'SphereFace', 'Am_softmax', 'ArcNegFace', 'CurricularFace', 'SVX']
         LOSS_NAME = 'Softmax', # support: [''Softmax', Focal', 'HardMining', 'LabelSmooth']
         
@@ -33,6 +34,7 @@ configurations = {
         
         LR = 0.1, # initial LR
         LR_SCHEDULER = 'cosine', # step/multi_step/cosine
+        OPTIMIZER = 'SGD',
         WARMUP_EPOCH = 0, 
         WARMUP_LR = 0.0,
         START_EPOCH = 0, #start epoch
@@ -43,9 +45,6 @@ configurations = {
         LR_END = 1e-5, # minimum learning rate
         WEIGHT_DECAY = 5e-4, # do not apply to batch_norm parameters
         MOMENTUM = 0.9,
-
-        EVAL_FREQ = 2000,
-        NECK = "GDC", # support: ['E', 'F', 'G', 'H', 'I', 'J', 'Z', 'FC', 'GAP', 'GNAP', 'GDC']
 
         
         WORLD_SIZE = 1,
