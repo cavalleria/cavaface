@@ -25,11 +25,18 @@ def l2_norm(input, axis = 1):
     return output
 
 def get_val_pair(path, name):
+    # same as original
     carray = bcolz.carray(rootdir = os.path.join(path, name), mode = 'r')
     batch = np.array(carray)
-    batch = batch[:,::-1,:,:].copy()
-    cropped = torch.tensor(batch)
-    flipped = torch.tensor(batch[:,:,:,::-1].copy())
+    batch = (batch[:,::-1,:,:]*0.5+0.5)*255
+    batch=batch.astype(np.uint8)
+    batch=(batch.astype(np.float32)/255.)*2-1
+    cropped = torch.tensor(batch.copy())
+    
+    batch = (batch[:,:,:,::-1]*0.5+0.5)*255
+    batch=batch.astype(np.uint8)
+    batch=(batch.astype(np.float32)/255.)*2-1
+    flipped = torch.tensor(batch.copy())
  
     issame = np.load('{}/{}_list.npy'.format(path, name))
 
@@ -131,9 +138,9 @@ def perform_val(embedding_size, batch_size, backbone, carray, issame, nrof_folds
     with torch.no_grad():
         while idx + batch_size <= shape[0]:
             if tta:
-                ccropped = carray[0][idx:idx + batch_size]
+                cropped = carray[0][idx:idx + batch_size]
                 flipped = carray[1][idx:idx + batch_size]
-                emb_batch = backbone(ccropped.cuda())[0].cpu() + backbone(flipped.cuda())[0].cpu()
+                emb_batch = backbone(cropped.cuda())[0].cpu() + backbone(flipped.cuda())[0].cpu()
                 embeddings[idx:idx + batch_size] = l2_norm(emb_batch)
             else:
                 ccropped = carray[0][idx:idx + batch_size]
@@ -141,12 +148,10 @@ def perform_val(embedding_size, batch_size, backbone, carray, issame, nrof_folds
             idx += batch_size
         if idx < shape[0]:
             if tta:
-                cropped = torch.zeros([batch_size, shape[1], shape[2], shape[3]], dtype=carray[0].dtype)
-                flipped = torch.zeros([batch_size, shape[1], shape[2], shape[3]], dtype=carray[1].dtype)
-                cropped[0:(shape[0]-idx),:,:,:] = carray[0][idx:,:,:,:]
-                flipped[0:(shape[0]-idx),:,:,:] = carray[1][idx:,:,:,:]
-                emb_batch = backbone(ccropped.cuda())[0].cpu() + backbone(flipped.cuda())[0].cpu()
-                embeddings[idx:] = l2_norm(emb_batch[0:shape[0]-idx])
+                cropped = carray[0][idx:,:,:,:]
+                flipped = carray[1][idx:,:,:,:]
+                emb_batch = backbone(cropped.cuda())[0].cpu() + backbone(flipped.cuda())[0].cpu()
+                embeddings[idx:] = l2_norm(emb_batch)#[0:shape[0]-idx])
             else:
                 ccropped = carray[0][idx:,:,:,:]
                 embeddings[idx:] = l2_norm(backbone(ccropped.cuda())[0]).cpu()

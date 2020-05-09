@@ -232,8 +232,10 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
     writer = SummaryWriter(LOG_ROOT) # writer for buffering intermedium results
 
     def evaluate():
+        lr = optimizer.param_groups[0]['lr']
+        print("Current lr", lr)
         print("=" * 60)
-        print("Perform Evaluation on %s, and Save Checkpoints..."%(','.join([v[2] for v in valdata])))
+        print("Epoch-%d-Batch-%d: Perform Evaluation on %s, and Save Checkpoints..."%(epoch, batch, ','.join([v[2] for v in valdata])))
         sys.stdout.flush()
         acc_str = ""
         for v in valdata:
