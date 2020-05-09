@@ -48,6 +48,10 @@ def separate_irse_bn_paras(modules):
     for layer in modules:
         if 'resnet' in str(layer.__class__):
             continue
+        if 'backbone' in str(layer.__class__):
+            continue
+        if 'resattnet' in str(layer.__class__):
+            continue
         if 'container' in str(layer.__class__):
             continue
         else:

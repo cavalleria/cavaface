@@ -20,6 +20,7 @@ from config import configurations
 from backbone.resnet import *
 from backbone.resnet_irse import *
 from backbone.mobilefacenet import *
+from backbone.resattnet import *
 from head.metrics import *
 from loss.loss import *
 from util.utils import *
@@ -27,6 +28,7 @@ from dataset.datasets import FaceDataset
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
+import apex
 from apex.parallel import DistributedDataParallel as DDP
 from apex import amp
 from util.flops_counter import *
@@ -80,15 +82,15 @@ def main_worker(gpu, ngpus_per_node, cfg):
     NUM_EPOCH = cfg['NUM_EPOCH']
     USE_APEX = cfg['USE_APEX']
     EVAL_FREQ = cfg['EVAL_FREQ']
+    SYNC_BN = cfg['SYNC_BN']
     print("=" * 60)
     print("Overall Configurations:")
     print(cfg)
     print("=" * 60)
     train_transform = transforms.Compose([
-           transforms.RandomHorizontalFlip(),
-           transforms.ToTensor(),
-           transforms.Normalize(mean = RGB_MEAN,
-                            std = RGB_STD),])
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(mean = RGB_MEAN,std = RGB_STD),])
     dataset_train = FaceDataset(DATA_ROOT, RECORD_DIR, train_transform)
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
     train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=per_batch_size, shuffle = (train_sampler is None), num_workers=workers, pin_memory=True, sampler=train_sampler, drop_last=DROP_LAST)
@@ -114,7 +116,11 @@ def main_worker(gpu, ngpus_per_node, cfg):
                      'IR_SE_101': IR_SE_101, 
                      'IR_SE_152': IR_SE_152,
                      'IR_SE_185': IR_SE_185,
-                     'IR_SE_200': IR_SE_200}
+                     'IR_SE_200': IR_SE_200,
+                     'AttentionNet_IR_56': AttentionNet_IR_56,
+                     'AttentionNet_IRSE_56': AttentionNet_IRSE_56,
+                     'AttentionNet_IR_92': AttentionNet_IR_92,
+                     'AttentionNet_IRSE_92': AttentionNet_IRSE_92}
     BACKBONE_NAME = cfg['BACKBONE_NAME']
     INPUT_SIZE = cfg['INPUT_SIZE']
     assert INPUT_SIZE == [112, 112]
@@ -204,8 +210,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
         else:
             print("No Checkpoint Found at '{}' and '{}'. Please Have a Check or Continue to Train from Scratch".format(BACKBONE_RESUME_ROOT, HEAD_RESUME_ROOT))
         print("=" * 60)
-
-    
+    if SYNC_BN:
+        backbone = apex.parallel.convert_syncbn_model(backbone)
     if USE_APEX:
         [backbone, head], optimizer = amp.initialize([backbone, head], optimizer, opt_level='O2')
         backbone = DDP(backbone)

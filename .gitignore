@@ -133,6 +133,7 @@ dmypy.json
 .history/
 core*
 *.log*
+logs/
 .empty/
 xxx.py
 *.jpg

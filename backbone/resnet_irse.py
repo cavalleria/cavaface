@@ -3,94 +3,9 @@ import torch.nn as nn
 from torch.nn import Linear, Conv2d, BatchNorm1d, BatchNorm2d, PReLU, ReLU, Sigmoid, Dropout, MaxPool2d, \
     AdaptiveAvgPool2d, Sequential, Module
 from collections import namedtuple
-
+from .common import Flatten, l2_norm, SEModule, bottleneck_IR, bottleneck_IR_SE
 
 # Support: ['IR_50', 'IR_100', 'IR_101', 'IR_152', 'IR_185', 'IR_200', 'IR_SE_50', 'IR_SE_100', 'IR_SE_101', 'IR_SE_152', 'IR_SE_185', 'IR_SE_200']
-
-
-class Flatten(Module):
-    def forward(self, input):
-        return input.view(input.size(0), -1)
-
-
-def l2_norm(input, axis=1):
-    norm = torch.norm(input, 2, axis, True)
-    output = torch.div(input, norm)
-
-    return output
-
-
-class SEModule(Module):
-    def __init__(self, channels, reduction):
-        super(SEModule, self).__init__()
-        self.avg_pool = AdaptiveAvgPool2d(1)
-        self.fc1 = Conv2d(
-            channels, channels // reduction, kernel_size=1, padding=0, bias=False)
-
-        nn.init.xavier_uniform_(self.fc1.weight.data)
-
-        self.relu = ReLU(inplace=True)
-        self.fc2 = Conv2d(
-            channels // reduction, channels, kernel_size=1, padding=0, bias=False)
-
-        self.sigmoid = Sigmoid()
-
-    def forward(self, x):
-        module_input = x
-        x = self.avg_pool(x)
-        x = self.fc1(x)
-        x = self.relu(x)
-        x = self.fc2(x)
-        x = self.sigmoid(x)
-
-        return module_input * x
-
-
-class bottleneck_IR(Module):
-    def __init__(self, in_channel, depth, stride):
-        super(bottleneck_IR, self).__init__()
-        if in_channel == depth:
-            self.shortcut_layer = MaxPool2d(1, stride)
-        else:
-            self.shortcut_layer = Sequential(
-                Conv2d(in_channel, depth, (1, 1), stride, bias=False), BatchNorm2d(depth))
-        self.res_layer = Sequential(
-            BatchNorm2d(in_channel),
-            Conv2d(in_channel, depth, (3, 3), (1, 1), 1, bias=False), 
-            PReLU(depth),
-            Conv2d(depth, depth, (3, 3), stride, 1, bias=False), 
-            BatchNorm2d(depth))
-
-    def forward(self, x):
-        shortcut = self.shortcut_layer(x)
-        res = self.res_layer(x)
-
-        return res + shortcut
-
-
-class bottleneck_IR_SE(Module):
-    def __init__(self, in_channel, depth, stride):
-        super(bottleneck_IR_SE, self).__init__()
-        if in_channel == depth:
-            self.shortcut_layer = MaxPool2d(1, stride)
-        else:
-            self.shortcut_layer = Sequential(
-                Conv2d(in_channel, depth, (1, 1), stride, bias=False),
-                BatchNorm2d(depth))
-        self.res_layer = Sequential(
-            BatchNorm2d(in_channel),
-            Conv2d(in_channel, depth, (3, 3), (1, 1), 1, bias=False),
-            PReLU(depth),
-            Conv2d(depth, depth, (3, 3), stride, 1, bias=False),
-            BatchNorm2d(depth),
-            SEModule(depth, 16)
-        )
-
-    def forward(self, x):
-        shortcut = self.shortcut_layer(x)
-        res = self.res_layer(x)
-
-        return res + shortcut
 
 
 class Bottleneck(namedtuple('Block', ['in_channel', 'depth', 'stride'])):
