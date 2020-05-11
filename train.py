@@ -141,7 +141,7 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
                  'AirFace': AirFace,
                  'QAMFace': QAMFace}
     HEAD_NAME = cfg['HEAD_NAME']
-    head = HEAD_DICT[HEAD_NAME](in_features = EMBEDDING_SIZE, out_features = NUM_CLASS)
+    head = HEAD_DICT[HEAD_NAME](in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, apex_level = cfg["APEX_LEVEL"] if USE_APEX else None)
     print("Params: ", count_model_params(backbone))
     print("Flops:", count_model_flops(backbone))
     print("=" * 60)
@@ -215,7 +215,7 @@ def main_worker(gpu, ngpus_per_node, cfg, valdata):
 
     
     if USE_APEX:
-        [backbone, head], optimizer = amp.initialize([backbone, head], optimizer, opt_level='O2')
+        [backbone, head], optimizer = amp.initialize([backbone, head], optimizer, opt_level=cfg['APEX_LEVEL'])
         backbone = DDP(backbone)
         head = DDP(head)
     else:

@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Parameter
 import math
+import sys
 
 
 # Support: ['Softmax', 'ArcFace', 'CosFace', 'SphereFace', 'Am_softmax']
@@ -58,7 +59,7 @@ class ArcFace(nn.Module):
             m: margin
             cos(theta+m)
         """
-    def __init__(self, in_features, out_features, s = 64.0, m = 0.50, easy_margin = False):
+    def __init__(self, in_features, out_features, s = 64.0, m = 0.50, easy_margin = False, apex_level=None):
         super(ArcFace, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -76,6 +77,8 @@ class ArcFace(nn.Module):
         self.th = math.cos(math.pi - m)
         self.mm = math.sin(math.pi - m) * m
 
+        self.apex_level = apex_level
+
     def forward(self, embbedings, label):
         embbedings = l2_norm(embbedings, axis = 1)
         kernel_norm = l2_norm(self.kernel, axis = 0)
@@ -90,7 +93,11 @@ class ArcFace(nn.Module):
         if self.easy_margin:
             final_target_logit = torch.where(target_logit > 0, cos_theta_m, target_loit)
         else:
+            if self.apex_level == 'O1':
+                target_logit = target_logit.float()
             final_target_logit = torch.where(target_logit > self.th, cos_theta_m, target_logit - self.mm)
+            if self.apex_level == 'O1':
+                final_target_logit = final_target_logit.half()
 
         cos_theta.scatter_(1, label.view(-1, 1).long(), final_target_logit)
         output = cos_theta * self.s
