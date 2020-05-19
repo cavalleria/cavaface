@@ -60,11 +60,11 @@ The training data containing the annotation (and the models trained with these d
     * [ ] Optim(SGD,Adam,[LookAhead](https://github.com/lonePatient/lookahead_pytorch))
   * **[Data Augmentation](https://github.com/albumentations-team/albumentations)**
     * [ ] Blur
-    * [ ] [RandomErasing](https://github.com/zhunzhong07/Random-Erasing/blob/master/transforms.py)(官方版torchvision.transforms.RandomErasing)
+    * [x] [RandomErasing](https://github.com/zhunzhong07/Random-Erasing/blob/master/transforms.py)(官方版torchvision.transforms.RandomErasing)
     * [x] Mixup
     * [x] RandAugment
-    * [ ] Cutout
-    * [ ] CutMix
+    * [x] Cutout
+    * [x] CutMix
   * **Distillation**
     * [ ] KnowledgeDistillation
     * [ ] Multi Feature KD
