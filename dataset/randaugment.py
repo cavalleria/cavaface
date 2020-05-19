@@ -171,7 +171,7 @@ def augment_list():  # 16 oeprations and their ranges
     return l
 
 class RandAugment:
-    def __init__(self, n, m):
+    def __init__(self, n=2, m=9):
         self.n = n
         self.m = m      # [0, 30]
         self.augment_list = augment_list()

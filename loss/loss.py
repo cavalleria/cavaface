@@ -34,7 +34,7 @@ class HardMining(nn.Module):
         return loss_final
 
 class LabelSmoothCrossEntropyLoss(nn.Module):
-    def __init__(self, classes, smoothing=0.0, dim=-1):
+    def __init__(self, classes, smoothing=0.1, dim=-1):
         super(LabelSmoothCrossEntropyLoss, self).__init__()
         self.confidence = 1.0 - smoothing
         self.smoothing = smoothing

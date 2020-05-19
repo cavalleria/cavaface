@@ -15,7 +15,7 @@ import torchvision.datasets as datasets
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn.functional as F
-from torch.optim.lr_scheduler import StepLR, MultiStepLR, CosineAnnealingLR
+from torch.optim.lr_scheduler import StepLR, MultiStepLR
 from config import configurations
 from backbone.resnet import *
 from backbone.resnet_irse import *
@@ -25,6 +25,8 @@ from head.metrics import *
 from loss.loss import *
 from util.utils import *
 from dataset.datasets import FaceDataset
+from dataset.randaugment import RandAugment
+from dataset.utils import *
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
@@ -87,40 +89,35 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print("Overall Configurations:")
     print(cfg)
     print("=" * 60)
-    train_transform = transforms.Compose([
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(mean = RGB_MEAN,std = RGB_STD),])
+    transform_list = [transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean = RGB_MEAN,std = RGB_STD),]
+    if cfg['RANDAUGMENT']:
+        transform_list.append(RandAugment())
+    if cfg['RANDOM_ERASING']:
+        transform_list.append(RandomErasing())
+    if cfg['CUTOUT']:
+        transform_list.append(Cutout())
+    train_transform = transforms.Compose(transform_list)
+    
     dataset_train = FaceDataset(DATA_ROOT, RECORD_DIR, train_transform)
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
-    train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=per_batch_size, shuffle = (train_sampler is None), num_workers=workers, pin_memory=True, sampler=train_sampler, drop_last=DROP_LAST)
+    train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=per_batch_size, 
+                                                shuffle = (train_sampler is None), num_workers=workers, 
+                                                pin_memory=True, sampler=train_sampler, drop_last=DROP_LAST)
     SAMPLE_NUMS = dataset_train.get_sample_num_of_each_class()
     NUM_CLASS = len(train_loader.dataset.classes)
     print("Number of Training Classes: {}".format(NUM_CLASS))
     
-    lfw, cfp_fp, agedb_30, calfw, cplfw, vgg2_fp, lfw_issame, cfp_fp_issame, agedb_30_issame, calfw_issame, cplfw_issame, vgg2_fp_issame = get_val_data(VAL_DATA_ROOT)
+    lfw, cfp_fp, agedb_30, vgg2_fp, lfw_issame, cfp_fp_issame, agedb_30_issame, vgg2_fp_issame = get_val_data(VAL_DATA_ROOT)
  
     #======= model & loss & optimizer =======#
     BACKBONE_DICT = {'MobileFaceNet': MobileFaceNet,
-                     'ResNet_50': ResNet_50, 
-                     'ResNet_101': ResNet_101, 
-                     'ResNet_152': ResNet_152,
-                     'IR_50': IR_50, 
-                     'IR_100': IR_100,
-                     'IR_101': IR_101, 
-                     'IR_152': IR_152,
-                     'IR_185': IR_185,
-                     'IR_200': IR_200,
-                     'IR_SE_50': IR_SE_50, 
-                     'IR_SE_100': IR_SE_100,
-                     'IR_SE_101': IR_SE_101, 
-                     'IR_SE_152': IR_SE_152,
-                     'IR_SE_185': IR_SE_185,
-                     'IR_SE_200': IR_SE_200,
-                     'AttentionNet_IR_56': AttentionNet_IR_56,
-                     'AttentionNet_IRSE_56': AttentionNet_IRSE_56,
-                     'AttentionNet_IR_92': AttentionNet_IR_92,
-                     'AttentionNet_IRSE_92': AttentionNet_IRSE_92}
+                     'ResNet_50': ResNet_50, 'ResNet_101': ResNet_101, 'ResNet_152': ResNet_152,
+                     'IR_50': IR_50, 'IR_100': IR_100, 'IR_101': IR_101, 'IR_152': IR_152, 'IR_185': IR_185, 'IR_200': IR_200,
+                     'IR_SE_50': IR_SE_50, 'IR_SE_100': IR_SE_100, 'IR_SE_101': IR_SE_101, 'IR_SE_152': IR_SE_152, 'IR_SE_185': IR_SE_185, 'IR_SE_200': IR_SE_200,
+                     'AttentionNet_IR_56': AttentionNet_IR_56,'AttentionNet_IRSE_56': AttentionNet_IRSE_56,'AttentionNet_IR_92': AttentionNet_IR_92,'AttentionNet_IRSE_92': AttentionNet_IRSE_92
+                    }
     BACKBONE_NAME = cfg['BACKBONE_NAME']
     INPUT_SIZE = cfg['INPUT_SIZE']
     assert INPUT_SIZE == [112, 112]
@@ -129,16 +126,10 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print(backbone)
     print("{} Backbone Generated".format(BACKBONE_NAME))
     print("=" * 60)
-    HEAD_DICT = {'Softmax': Softmax,
-                 'ArcFace': ArcFace,
-                 'CosFace': CosFace,
-                 'SphereFace': SphereFace,
-                 'Am_softmax': Am_softmax,
-                 'CurricularFace': CurricularFace,
-                 'ArcNegFace': ArcNegFace,
-                 'SVX': SVXSoftmax,
-                 'AirFace': AirFace,
-                 'QAMFace': QAMFace}
+    HEAD_DICT = {'Softmax': Softmax, 'ArcFace': ArcFace, 'CosFace': CosFace, 'SphereFace': SphereFace,
+                 'Am_softmax': Am_softmax, 'CurricularFace': CurricularFace, 'ArcNegFace': ArcNegFace,
+                 'SVX': SVXSoftmax, 'AirFace': AirFace,'QAMFace': QAMFace
+                }
     HEAD_NAME = cfg['HEAD_NAME']
     EMBEDDING_SIZE = cfg['EMBEDDING_SIZE'] # feature dimension
     head = HEAD_DICT[HEAD_NAME](in_features = EMBEDDING_SIZE, out_features = NUM_CLASS)
@@ -178,7 +169,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
     # loss
     LOSS_NAME = cfg['LOSS_NAME']
     LOSS_DICT = {'Softmax'      : nn.CrossEntropyLoss(),
-                 'LabelSmooth'  : LabelSmoothCrossEntropyLoss(classes=NUM_CLASS,smoothing=0.1),
+                 'LabelSmooth'  : LabelSmoothCrossEntropyLoss(classes=NUM_CLASS),
                  'Focal'        : FocalLoss(),
                  'HM'           : HardMining()}
     loss = LOSS_DICT[LOSS_NAME].cuda(gpu)
@@ -248,10 +239,20 @@ def main_worker(gpu, ngpus_per_node, cfg):
             start_time=time.time()
             inputs = inputs.cuda(cfg['GPU'], non_blocking=True)
             labels = labels.cuda(cfg['GPU'], non_blocking=True)
+            
+            if cfg['MIXUP']:
+                    inputs, labels_a, labels_b, lam = mixup_data(inputs, labels, cfg['GPU'], cfg['MIXUP_PROB'], cfg['MIXUP_ALPHA'])
+                    inputs, labels_a, labels_b = map(Variable, (inputs, labels_a, labels_b))
+            elif cfg['CUTMIX']:
+                    inputs, labels_a, labels_b, lam = cutmix_data(inputs, labels, cfg['GPU'], cfg['CUTMIX_PROB'], cfg['MIXUP_ALPHA'])
+                    inputs, labels_a, labels_b = map(Variable, (inputs, labels_a, labels_b))
             features, conv_features = backbone(inputs)
-
             outputs = head(features, labels)
-            lossx = loss(outputs, labels)
+            
+            if cfg['MIXUP'] or cfg['CUTMIX']:
+                lossx = mixup_criterion(loss, outputs, labels_a, labels_b, lam)
+            else:
+                lossx = loss(outputs, labels)
             end_time = time.time()
             duration = end_time - start_time
             if ((batch + 1) % DISP_FREQ == 0) and batch != 0:

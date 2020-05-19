@@ -13,7 +13,9 @@ configurations = {
         BACKBONE_RESUME_ROOT = "",
         HEAD_RESUME_ROOT = "",
         
-        BACKBONE_NAME = 'MobileFaceNet', # support: ['MobileFaceNet', 'ResNet_50', 'ResNet_101', 'ResNet_152', 'IR_50', 'IR_101', 'IR_152', 'IR_SE_50', 'IR_SE_101', 'IR_SE_152']
+        BACKBONE_NAME = 'MobileFaceNet', # support: ['MobileFaceNet', 'ResNet_50', 'ResNet_101', 'ResNet_152', 
+                                #'IR_50', 'IR_101', 'IR_152', 'IR_SE_50', 'IR_SE_101', 'IR_SE_152',
+                                #'AttentionNet_IR_56', 'AttentionNet_IRSE_56','AttentionNet_IR_92', 'AttentionNet_IRSE_92']
         HEAD_NAME = "ArcFace", # support:  ['Softmax', 'ArcFace', 'CosFace', 'SphereFace', 'Am_softmax', 'ArcNegFace', 'CurricularFace', 'SVX']
         LOSS_NAME = 'Softmax', # support: [''Softmax', Focal', 'HardMining', 'LabelSmooth']
         
@@ -46,6 +48,20 @@ configurations = {
         NUM_WORKERS = 2,
         TEST_GPU_ID = [0,1,2,3,4,5,6,7],
 
-        USE_APEX = False
+        USE_APEX = False,
+        SYNC_BN = False,
+
+        # Data Augmentation
+        RANDAUGMENT = False,
+        RANDAUGMENT_N = 2, # random pick numer of aug typr form aug_list 
+        RANDAUGMENT_M = 9,
+        RANDOM_ERASING = False,
+        MIXUP = False,
+        MIXUP_ALPHA = 1.0,
+        MIXUP_PROB = 0.5,
+        CUTOUT = False, 
+        CUTMIX = False, 
+        CUTMIX_ALPHA = 1.0,
+        CUTMIX_PROB = 0.5
     ),
 }

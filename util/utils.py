@@ -38,7 +38,7 @@ def get_val_data(data_path):
     cplfw, cplfw_issame = get_val_pair(data_path, 'cplfw')
     vgg2_fp, vgg2_fp_issame = get_val_pair(data_path, 'vgg2_fp')
 
-    return lfw, cfp_fp, agedb_30, calfw, cplfw, vgg2_fp, lfw_issame, cfp_fp_issame, agedb_30_issame, calfw_issame, cplfw_issame, vgg2_fp_issame 
+    return lfw, cfp_fp, agedb_30, vgg2_fp, lfw_issame, cfp_fp_issame, agedb_30_issame, vgg2_fp_issame 
 
 def separate_irse_bn_paras(modules):
     if not isinstance(modules, list):
