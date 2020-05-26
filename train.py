@@ -198,6 +198,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
                 cfg['START_EPOCH'] = checkpoint['EPOCH']
                 head.load_state_dict(checkpoint['HEAD'])
                 optimizer.load_state_dict(checkpoint['OPTIMIZER'])
+                del(checkpoint)
         else:
             print("No Checkpoint Found at '{}' and '{}'. Please Have a Check or Continue to Train from Scratch".format(BACKBONE_RESUME_ROOT, HEAD_RESUME_ROOT))
         print("=" * 60)
