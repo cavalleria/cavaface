@@ -358,7 +358,7 @@ class CurricularFace(nn.Module):
         cos_theta[mask] = hard_example * (self.t + hard_example)
         cos_theta.scatter_(1, label.view(-1, 1).long(), final_target_logit)
         output = cos_theta * self.s
-        return output, origin_cos * self.s
+        return output
 
 class ArcNegFace(nn.Module):
     r"""Implement of Towards Flops-constrained Face Recognition (https://arxiv.org/pdf/1909.00632.pdf):
@@ -414,7 +414,7 @@ class ArcNegFace(nn.Module):
                     a[i, lb] = cos[i, lb]-self.mm
                 reweight = self.alpha*torch.exp(-torch.pow(cos[i,]-a[i,lb].item(),2)/self.sigma)
                 t_scale[i]*=reweight.detach()
-            return {'logits':self.scale * (a_scale*a+c_scale*(t_scale*cos+t_scale-1))}
+            return self.scale * (a_scale*a+c_scale*(t_scale*cos+t_scale-1))
 
 class SVXSoftmax(nn.Module):
     r"""Implement of Mis-classified Vector Guided Softmax Loss for Face Recognition
@@ -430,6 +430,7 @@ class SVXSoftmax(nn.Module):
         """
     def __init__(self, in_features, out_features, xtype='MV-AM', s=32.0, m=0.35, t=0.2, easy_margin=False):
         super(SVXSoftmax, self).__init__()
+        self.xtype = xtype
         self.in_features = in_features
         self.out_features = out_features
 
