@@ -93,7 +93,7 @@ You can change the experimental setting by simply modifying the parameter in the
 ## Contact
 
 ```
-cavalleria@gmail.com
+cavallyb@gmail.com
 ```
 
 
