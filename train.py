@@ -38,9 +38,9 @@ from optimizer.lr_scheduler import *
 
 def set_seed(seed):
     random.seed(seed)
-    np.random.seed(seed)  
+    np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)       
+    torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
 def main():
@@ -53,7 +53,7 @@ def main():
     world_size = cfg['WORLD_SIZE']
     cfg['WORLD_SIZE'] = ngpus_per_node * world_size
     mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, cfg))
-    
+
 def main_worker(gpu, ngpus_per_node, cfg):
     cfg['GPU'] = gpu
     if gpu != 0:
@@ -62,7 +62,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
         builtins.print = print_pass
     cfg['RANK'] = cfg['RANK'] * ngpus_per_node + gpu
     dist.init_process_group(backend=cfg['DIST_BACKEND'], init_method = cfg["DIST_URL"], world_size=cfg['WORLD_SIZE'], rank=cfg['RANK'])
-    
+
     # Data loading code
     batch_size = int(cfg['BATCH_SIZE'])
     per_batch_size = int(batch_size / ngpus_per_node)
@@ -92,25 +92,25 @@ def main_worker(gpu, ngpus_per_node, cfg):
     transform_list = [transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
                     transforms.Normalize(mean = RGB_MEAN,std = RGB_STD),]
-    if cfg['RANDAUGMENT']:
-        transform_list.append(RandAugment())
     if cfg['RANDOM_ERASING']:
         transform_list.append(RandomErasing())
     if cfg['CUTOUT']:
         transform_list.append(Cutout())
     train_transform = transforms.Compose(transform_list)
-    
+    if cfg['RANDAUGMENT']:
+        train_transform.transforms.insert(0, RandAugment(n=cfg['RANDAUGMENT_N'], m=cfg['RANDAUGMENT_M']))
+
     dataset_train = FaceDataset(DATA_ROOT, RECORD_DIR, train_transform)
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
-    train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=per_batch_size, 
-                                                shuffle = (train_sampler is None), num_workers=workers, 
+    train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=per_batch_size,
+                                                shuffle = (train_sampler is None), num_workers=workers,
                                                 pin_memory=True, sampler=train_sampler, drop_last=DROP_LAST)
     SAMPLE_NUMS = dataset_train.get_sample_num_of_each_class()
     NUM_CLASS = len(train_loader.dataset.classes)
     print("Number of Training Classes: {}".format(NUM_CLASS))
-    
+
     lfw, cfp_fp, agedb_30, vgg2_fp, lfw_issame, cfp_fp_issame, agedb_30_issame, vgg2_fp_issame = get_val_data(VAL_DATA_ROOT)
- 
+
     #======= model & loss & optimizer =======#
     BACKBONE_DICT = {'MobileFaceNet': MobileFaceNet,
                      'ResNet_50': ResNet_50, 'ResNet_101': ResNet_101, 'ResNet_152': ResNet_152,
@@ -140,18 +140,18 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print("{} Head Generated".format(HEAD_NAME))
     print("=" * 60)
 
-    
+
    #--------------------optimizer-----------------------------
     if BACKBONE_NAME.find("IR") >= 0:
         backbone_paras_only_bn, backbone_paras_wo_bn = separate_irse_bn_paras(backbone) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
     else:
         backbone_paras_only_bn, backbone_paras_wo_bn = separate_resnet_bn_paras(backbone) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
-    
+
     LR = cfg['LR'] # initial LR
     WEIGHT_DECAY = cfg['WEIGHT_DECAY']
     MOMENTUM = cfg['MOMENTUM']
     optimizer = optim.SGD([
-                            {'params': backbone_paras_wo_bn + list(head.parameters()), 'weight_decay': WEIGHT_DECAY}, 
+                            {'params': backbone_paras_wo_bn + list(head.parameters()), 'weight_decay': WEIGHT_DECAY},
                             {'params': backbone_paras_only_bn}
                             ], lr = LR, momentum = MOMENTUM)
     if LR_SCHEDULER == 'step':
@@ -160,12 +160,12 @@ def main_worker(gpu, ngpus_per_node, cfg):
         scheduler = MultiStepLR(optimizer, milestones=LR_DECAY_EPOCH, gamma=LR_DECAT_GAMMA)
     elif LR_SCHEDULER == 'cosine':
         scheduler = CosineWarmupLR(optimizer, batches=len(train_loader), epochs=NUM_EPOCH, base_lr=LR, target_lr=LR_END, warmup_epochs=WARMUP_EPOCH, warmup_lr=WARMUP_LR)
-    
+
     print("=" * 60)
     print(optimizer)
     print("Optimizer Generated")
     print("=" * 60)
-  
+
     # loss
     LOSS_NAME = cfg['LOSS_NAME']
     LOSS_DICT = {'Softmax'      : nn.CrossEntropyLoss(),
@@ -177,12 +177,12 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print(loss)
     print("{} Loss Generated".format(loss))
     print("=" * 60)
-    
+
     torch.cuda.set_device(cfg['GPU'])
     backbone.cuda(cfg['GPU'])
     head.cuda(cfg['GPU'])
 
-    #optionally resume from a checkpoint 
+    #optionally resume from a checkpoint
     BACKBONE_RESUME_ROOT = cfg['BACKBONE_RESUME_ROOT'] # the root to resume training from a saved checkpoint
     HEAD_RESUME_ROOT = cfg['HEAD_RESUME_ROOT']  # the root to resume training from a saved checkpoint
     IS_RESUME = cfg['IS_RESUME']
@@ -214,7 +214,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
      # checkpoint and tensorboard dir
     MODEL_ROOT = cfg['MODEL_ROOT'] # the root to buffer your checkpoints
     LOG_ROOT = cfg['LOG_ROOT'] # the root to log your train/val status
-    
+
     os.makedirs(MODEL_ROOT, exist_ok=True)
     os.makedirs(LOG_ROOT, exist_ok=True)
 
@@ -239,7 +239,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
             start_time=time.time()
             inputs = inputs.cuda(cfg['GPU'], non_blocking=True)
             labels = labels.cuda(cfg['GPU'], non_blocking=True)
-            
+
             if cfg['MIXUP']:
                     inputs, labels_a, labels_b, lam = mixup_data(inputs, labels, cfg['GPU'], cfg['MIXUP_PROB'], cfg['MIXUP_ALPHA'])
                     inputs, labels_a, labels_b = map(Variable, (inputs, labels_a, labels_b))
@@ -248,7 +248,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
                     inputs, labels_a, labels_b = map(Variable, (inputs, labels_a, labels_b))
             features, conv_features = backbone(inputs)
             outputs = head(features, labels)
-            
+
             if cfg['MIXUP'] or cfg['CUTMIX']:
                 lossx = mixup_criterion(loss, outputs, labels_a, labels_b, lam)
             else:
@@ -266,7 +266,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
             else:
                 lossx.backward()
             optimizer.step()
-            
+
             # measure accuracy and record loss
             prec1, prec5 = accuracy(outputs.data, labels, topk = (1, 5))
             losses.update(lossx.data.item(), inputs.size(0))
@@ -325,8 +325,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
             writer.add_scalar("Training_Accuracy", epoch_acc, epoch + 1)
             writer.add_scalar("Top1", top1.avg, epoch+1)
             writer.add_scalar("Top5", top5.avg, epoch+1)
-        
-        
-    
+
+
+
 if __name__ == '__main__':
     main()
