@@ -2,13 +2,6 @@
 
 By Yaobin Li
 
-
-## License
-
-The code of cavaface.pytorch is released under the MIT License. There is no limitation for both acadmic and commercial usage.
-
-The training data containing the annotation (and the models trained with these data) are available for non-commercial research purposes only.
-
 ## Main requirements
 
   * **torch == 1.4.0**
@@ -74,6 +67,9 @@ The training data containing the annotation (and the models trained with these d
     * [ ] Zero gamma
 
 ## Usage
+
+### For training data
+please download the ms1m-retinaface in https://github.com/deepinsight/insightface/tree/master/iccv19-challenge.
 ```bash
 # To train the model:
 sh train.sh
@@ -83,6 +79,15 @@ sh train.sh
 sh evaluate.sh
 ```
 You can change the experimental setting by simply modifying the parameter in the config.py
+
+## Benchmark
+| Backbone | Head | Loss | Flops | Megaface(tpr@fpr=1e-6) | Megaface(rank1) | IJBC(tpr@fpr=1e-4) |
+| :----: | :----: | :----:| :----: | :----: | :----: | :----: |
+| MobileFaceNet | Arcface | Softmax | 440M | 93.6329 | 92.8694 | 92.80 |
+| IR-SE-100 | Arcface | Softmax | 24.18G | 99.4259 | 99.0881 | 96.69 |
+| AttentionNet-IRSE-92 | Arcface | Softmax | 17.63G | 99.3999 | 99.1356 | 96.56 |
+
+
 
 
 ## Acknowledgement
