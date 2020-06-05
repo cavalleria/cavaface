@@ -80,19 +80,20 @@ def count_model_flops(model, input_res=[112, 112], multiply_adds=True):
 
         list_pooling.append(flops)
 
+    handles = []
     def foo(net):
         childrens = list(net.children())
         if not childrens:
             if isinstance(net, torch.nn.Conv2d) or isinstance(net, torch.nn.ConvTranspose2d):
-                net.register_forward_hook(conv_hook)
+                handles.append(net.register_forward_hook(conv_hook))
             if isinstance(net, torch.nn.Linear):
-                net.register_forward_hook(linear_hook)
+                handles.append(net.register_forward_hook(linear_hook))
             if isinstance(net, torch.nn.BatchNorm2d):
-                net.register_forward_hook(bn_hook)
+                handles.append(net.register_forward_hook(bn_hook))
             if isinstance(net, torch.nn.ReLU) or isinstance(net, torch.nn.PReLU):
-                net.register_forward_hook(relu_hook)
+                handles.append(net.register_forward_hook(relu_hook))
             if isinstance(net, torch.nn.MaxPool2d) or isinstance(net, torch.nn.AvgPool2d):
-                net.register_forward_hook(pooling_hook)
+                handles.append(net.register_forward_hook(pooling_hook))
             return
         for c in childrens:
             foo(c)
@@ -102,6 +103,7 @@ def count_model_flops(model, input_res=[112, 112], multiply_adds=True):
     input = Variable(torch.rand(3,input_res[1],input_res[0]).unsqueeze(0), requires_grad = True)
     out = model(input)
     total_flops = (sum(list_conv) + sum(list_linear) + sum(list_bn) + sum(list_relu) + sum(list_pooling))
+    for h in handles:
+        h.remove()
     model.train()
     return flops_to_string(total_flops)
-

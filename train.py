@@ -3,6 +3,7 @@ import sys
 import time
 import random
 import numpy as np
+import copy
 import scipy
 import pickle
 import builtins
@@ -35,6 +36,7 @@ from apex.parallel import DistributedDataParallel as DDP
 from apex import amp
 from util.flops_counter import *
 from optimizer.lr_scheduler import *
+#from torchprofile import profile_macs
 
 def set_seed(seed):
     random.seed(seed)
@@ -92,14 +94,13 @@ def main_worker(gpu, ngpus_per_node, cfg):
     transform_list = [transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
                     transforms.Normalize(mean = RGB_MEAN,std = RGB_STD),]
-    if cfg['RANDAUGMENT']:
-        transform_list.append(RandAugment())
     if cfg['RANDOM_ERASING']:
         transform_list.append(RandomErasing())
     if cfg['CUTOUT']:
         transform_list.append(Cutout())
     train_transform = transforms.Compose(transform_list)
-    
+    if cfg['RANDAUGMENT']:
+        train_transform.transforms.insert(0, RandAugment(n=cfg['RANDAUGMENT_N'], m=cfg['RANDAUGMENT_M']))
     dataset_train = FaceDataset(DATA_ROOT, RECORD_DIR, train_transform)
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
     train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=per_batch_size, 
@@ -135,6 +136,9 @@ def main_worker(gpu, ngpus_per_node, cfg):
     head = HEAD_DICT[HEAD_NAME](in_features = EMBEDDING_SIZE, out_features = NUM_CLASS)
     print("Params: ", count_model_params(backbone))
     print("Flops:", count_model_flops(backbone))
+    #backbone = backbone.eval()
+    #print("Flops: ", flops_to_string(2*float(profile_macs(backbone.eval(), torch.randn(1, 3, 112, 112)))))
+    #backbone = backbone.train()
     print("=" * 60)
     print(head)
     print("{} Head Generated".format(HEAD_NAME))
@@ -201,6 +205,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
         else:
             print("No Checkpoint Found at '{}' and '{}'. Please Have a Check or Continue to Train from Scratch".format(BACKBONE_RESUME_ROOT, HEAD_RESUME_ROOT))
         print("=" * 60)
+    ori_backbone = copy.deepcopy(backbone)
     if SYNC_BN:
         backbone = apex.parallel.convert_syncbn_model(backbone)
     if USE_APEX:
@@ -304,11 +309,17 @@ def main_worker(gpu, ngpus_per_node, cfg):
                 print("=" * 60)
                 print("Save Checkpoint...")
                 if cfg['RANK'] % ngpus_per_node == 0:
-                    torch.save(backbone.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, get_time())))
-                    save_dict = {'EPOCH': epoch+1,
-                                'HEAD': head.module.state_dict(),
-                                'OPTIMIZER': optimizer.state_dict()}
-                    torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
+                    #torch.save(backbone.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, get_time())))
+                    #save_dict = {'EPOCH': epoch+1,
+                    #            'HEAD': head.module.state_dict(),
+                    #            'OPTIMIZER': optimizer.state_dict()}
+                    #torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
+                    ori_backbone.load_state_dict(backbone.module.state_dict())
+                    ori_backbone.eval()
+                    x = torch.from_numpy(np.ones([1,3,112,112],dtype=np.float32)).cuda()
+                    traced_cell = torch.jit.trace(ori_backbone, (x))
+                    #torch.save(ori_backbone, os.path.join(MODEL_ROOT, "model.pth"))
+                    torch.jit.save(traced_cell, os.path.join(MODEL_ROOT, "Epoch_{}_Time_{}_checkpoint.pth".format(epoch + 1, get_time())))
             sys.stdout.flush()
             batch += 1 # batch index
         epoch_loss = losses.avg
