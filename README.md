@@ -11,8 +11,8 @@ The training data containing the annotation (and the models trained with these d
 
 ## Main requirements
 
-  * **torch == 1.1.0**
-  * **torchvision == 0.3.0**
+  * **torch == 1.4.0**
+  * **torchvision == 0.5.0**
   * **tensorboardX == 1.7**
   * **bcolz == 1.2.1**
   * **Python 3**
