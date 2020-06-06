@@ -85,7 +85,7 @@ You can change the experimental setting by simply modifying the parameter in the
 | :----: | :----: | :----:| :----: | :----: | :----: |
 | MobileFaceNet | Arcface | Softmax | 440M |  92.8694/93.6329 | 92.80 |
 | IR-SE-100 | Arcface | Softmax | 24.18G | 99.0881/99.4259 | 96.69 |
-| AttentionNet-IRSE-92 | Arcface | Softmax | 17.63G | 99.1356/99.3999 | 96.56 |
+| AttentionNet-IRSE-92 | MV-AM | Softmax | 17.63G | 99.1356/99.3999 | 96.56 |
 
 
 
