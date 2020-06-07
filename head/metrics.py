@@ -107,7 +107,7 @@ class Combined(nn.Module):
             cos(theta+m)
         """
     def __init__(self, in_features, out_features, s=64.0, m2=0.30, m3=0.2, easy_margin = False):
-        super(ArcFace, self).__init__()
+        super(Combined, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.s = s
