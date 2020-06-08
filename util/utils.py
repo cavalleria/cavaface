@@ -130,7 +130,7 @@ def perform_val(embedding_size, batch_size, backbone, carray, issame, nrof_folds
             if tta:
                 ccropped = ccrop_batch(batch)
                 fliped = hflip_batch(ccropped)
-                emb_batch = backbone(ccropped.cuda())[0].cpu() + backbone(fliped.cuda())[0].cpu()
+                emb_batch = backbone(ccropped.cuda()).cpu() + backbone(fliped.cuda()).cpu()
                 embeddings[idx:idx + batch_size] = l2_norm(emb_batch)
             else:
                 ccropped = ccrop_batch(batch)
@@ -141,7 +141,7 @@ def perform_val(embedding_size, batch_size, backbone, carray, issame, nrof_folds
             if tta:
                 ccropped = ccrop_batch(batch)
                 fliped = hflip_batch(ccropped)
-                emb_batch = backbone(ccropped.cuda())[0].cpu() + backbone(fliped.cuda())[0].cpu()
+                emb_batch = backbone(ccropped.cuda()).cpu() + backbone(fliped.cuda()).cpu()
                 embeddings[idx:] = l2_norm(emb_batch)
             else:
                 ccropped = ccrop_batch(batch)

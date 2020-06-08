@@ -1,106 +1,12 @@
-##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-## Created by: Hang Zhang
-## Email: zhanghang0704@gmail.com
-## Copyright (c) 2020
-##
-## LICENSE file in the root directory of this source tree 
-##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# adapted from https://github.com/zhanghang1989/ResNeSt/blob/master/resnest/torch/resnet.py
 """ResNeSt models"""
 
 import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Conv2d, Module, Linear, BatchNorm2d, ReLU
-from torch.nn.modules.utils import _pair
-
-class SplAtConv2d(Module):
-    """Split-Attention Conv2d
-    """
-    def __init__(self, in_channels, channels, kernel_size, stride=(1, 1), padding=(0, 0),
-                 dilation=(1, 1), groups=1, bias=True,
-                 radix=2, reduction_factor=4,
-                 rectify=False, rectify_avg=False, norm_layer=None,
-                 dropblock_prob=0.0, **kwargs):
-        super(SplAtConv2d, self).__init__()
-        padding = _pair(padding)
-        self.rectify = rectify and (padding[0] > 0 or padding[1] > 0)
-        self.rectify_avg = rectify_avg
-        inter_channels = max(in_channels*radix//reduction_factor, 32)
-        self.radix = radix
-        self.cardinality = groups
-        self.channels = channels
-        self.dropblock_prob = dropblock_prob
-        if self.rectify:
-            from rfconv import RFConv2d
-            self.conv = RFConv2d(in_channels, channels*radix, kernel_size, stride, padding, dilation,
-                                 groups=groups*radix, bias=bias, average_mode=rectify_avg, **kwargs)
-        else:
-            self.conv = Conv2d(in_channels, channels*radix, kernel_size, stride, padding, dilation,
-                               groups=groups*radix, bias=bias, **kwargs)
-        self.use_bn = norm_layer is not None
-        if self.use_bn:
-            self.bn0 = norm_layer(channels*radix)
-        self.relu = ReLU(inplace=True)
-        self.fc1 = Conv2d(channels, inter_channels, 1, groups=self.cardinality)
-        if self.use_bn:
-            self.bn1 = norm_layer(inter_channels)
-        self.fc2 = Conv2d(inter_channels, channels*radix, 1, groups=self.cardinality)
-        if dropblock_prob > 0.0:
-            self.dropblock = DropBlock2D(dropblock_prob, 3)
-        self.rsoftmax = rSoftMax(radix, groups)
-
-    def forward(self, x):
-        x = self.conv(x)
-        if self.use_bn:
-            x = self.bn0(x)
-        if self.dropblock_prob > 0.0:
-            x = self.dropblock(x)
-        x = self.relu(x)
-
-        batch, rchannel = x.shape[:2]
-        if self.radix > 1:
-            splited = torch.split(x, rchannel//self.radix, dim=1)
-            gap = sum(splited) 
-        else:
-            gap = x
-        gap = F.adaptive_avg_pool2d(gap, 1)
-        gap = self.fc1(gap)
-
-        if self.use_bn:
-            gap = self.bn1(gap)
-        gap = self.relu(gap)
-
-        atten = self.fc2(gap)
-        atten = self.rsoftmax(atten).view(batch, -1, 1, 1)
-
-        if self.radix > 1:
-            attens = torch.split(atten, rchannel//self.radix, dim=1)
-            out = sum([att*split for (att, split) in zip(attens, splited)])
-        else:
-            out = atten * x
-        return out.contiguous()
-
-class rSoftMax(nn.Module):
-    def __init__(self, radix, cardinality):
-        super().__init__()
-        self.radix = radix
-        self.cardinality = cardinality
-
-    def forward(self, x):
-        batch = x.size(0)
-        if self.radix > 1:
-            x = x.view(batch, self.cardinality, self.radix, -1).transpose(1, 2)
-            x = F.softmax(x, dim=1)
-            x = x.reshape(batch, -1)
-        else:
-            x = torch.sigmoid(x)
-        return x
-
-
-class DropBlock2D(object):
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError
+from torch.nn import Conv2d, Module, Linear, BatchNorm1d, BatchNorm2d, ReLU, Dropout, Flatten, Sequential
+from .common import SplAtConv2d, rSoftMax, DropBlock2D
 
 class GlobalAvgPool2d(nn.Module):
     def __init__(self):
@@ -235,8 +141,8 @@ class ResNet(nn.Module):
         - Yu, Fisher, and Vladlen Koltun. "Multi-scale context aggregation by dilated convolutions."
     """
     # pylint: disable=unused-variable
-    def __init__(self, block, layers, radix=1, groups=1, bottleneck_width=64,
-                 num_classes=1000, dilated=False, dilation=1,
+    def __init__(self, input_size, block, layers, radix=1, groups=1, 
+                 bottleneck_width=64, dilated=False, dilation=1,
                  deep_stem=False, stem_width=64, avg_down=False,
                  rectified_conv=False, rectify_avg=False,
                  avd=False, avd_first=False,
@@ -277,7 +183,7 @@ class ResNet(nn.Module):
                                    bias=False, **conv_kwargs)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        #self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0], norm_layer=norm_layer, is_first=False)
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2, norm_layer=norm_layer)
         if dilated or dilation == 4:
@@ -301,9 +207,14 @@ class ResNet(nn.Module):
             self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
                                            norm_layer=norm_layer,
                                            dropblock_prob=dropblock_prob)
-        self.avgpool = GlobalAvgPool2d()
-        self.drop = nn.Dropout(final_drop) if final_drop > 0.0 else None
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        #self.avgpool = GlobalAvgPool2d()
+        #self.drop = nn.Dropout(final_drop) if final_drop > 0.0 else None
+        #self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = Sequential(BatchNorm2d(512 * block.expansion),
+                            Dropout(0.4),
+                            Flatten(),
+                            Linear(512 * block.expansion * 7 * 7, 512),
+                            BatchNorm1d(512, affine=False))
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -372,18 +283,20 @@ class ResNet(nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        x = self.maxpool(x)
+        #x = self.maxpool(x)
 
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
+        
+        conv_out = x
 
-        x = self.avgpool(x)
+        #x = self.avgpool(x)
         #x = x.view(x.size(0), -1)
-        x = torch.flatten(x, 1)
-        if self.drop:
-            x = self.drop(x)
+        #x = torch.flatten(x, 1)
+        # #if self.drop:
+        #    x = self.drop(x)
         x = self.fc(x)
 
         return x
@@ -398,6 +311,13 @@ def resnest50(input_size, **kwargs):
 
 def resnest101(input_size, **kwargs):
     model = ResNet(input_size, Bottleneck, [3, 4, 23, 3],
+                   radix=2, groups=1, bottleneck_width=64,
+                   deep_stem=True, stem_width=64, avg_down=True,
+                   avd=True, avd_first=False, **kwargs)
+    return model
+
+def resnest100(input_size, **kwargs):
+    model = ResNet(input_size, Bottleneck, [3, 13, 30, 3],
                    radix=2, groups=1, bottleneck_width=64,
                    deep_stem=True, stem_width=64, avg_down=True,
                    avd=True, avd_first=False, **kwargs)

@@ -108,7 +108,7 @@ class Backbone(Module):
         conv_out = x.view(x.shape[0], -1)
         x = self.output_layer(x)
 
-        return x, conv_out
+        return x
 
     def _initialize_weights(self):
         for m in self.modules():

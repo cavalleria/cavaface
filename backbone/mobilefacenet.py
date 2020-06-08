@@ -156,4 +156,4 @@ class MobileFaceNet(Module):
 
         conv_features = self.conv_6_sep(out)
         out = self.output_layer(conv_features)
-        return out, conv_features
+        return out

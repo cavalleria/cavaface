@@ -22,6 +22,8 @@ from backbone.resnet import *
 from backbone.resnet_irse import *
 from backbone.mobilefacenet import *
 from backbone.resattnet import *
+from backbone.efficientpolyface import *
+from backbone.resnest import *
 from head.metrics import *
 from loss.loss import *
 from util.utils import *
@@ -117,7 +119,9 @@ def main_worker(gpu, ngpus_per_node, cfg):
                      'ResNet_50': ResNet_50, 'ResNet_101': ResNet_101, 'ResNet_152': ResNet_152,
                      'IR_50': IR_50, 'IR_100': IR_100, 'IR_101': IR_101, 'IR_152': IR_152, 'IR_185': IR_185, 'IR_200': IR_200,
                      'IR_SE_50': IR_SE_50, 'IR_SE_100': IR_SE_100, 'IR_SE_101': IR_SE_101, 'IR_SE_152': IR_SE_152, 'IR_SE_185': IR_SE_185, 'IR_SE_200': IR_SE_200,
-                     'AttentionNet_IR_56': AttentionNet_IR_56,'AttentionNet_IRSE_56': AttentionNet_IRSE_56,'AttentionNet_IR_92': AttentionNet_IR_92,'AttentionNet_IRSE_92': AttentionNet_IRSE_92
+                     'AttentionNet_IR_56': AttentionNet_IR_56,'AttentionNet_IRSE_56': AttentionNet_IRSE_56,'AttentionNet_IR_92': AttentionNet_IR_92,'AttentionNet_IRSE_92': AttentionNet_IRSE_92,
+                     'PolyNet': PolyNet, 'PolyFace': PolyFace, 'EfficientPolyFace': EfficientPolyFace,
+                     'ResNeSt_50': resnest50, 'ResNeSt_101': resnest101, 'ResNeSt_100': resnest100
                     }
     BACKBONE_NAME = cfg['BACKBONE_NAME']
     INPUT_SIZE = cfg['INPUT_SIZE']
@@ -127,9 +131,9 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print(backbone)
     print("{} Backbone Generated".format(BACKBONE_NAME))
     print("=" * 60)
-    HEAD_DICT = {'Softmax': Softmax, 'ArcFace': ArcFace, 'CosFace': CosFace, 'SphereFace': SphereFace,
-                 'Am_softmax': Am_softmax, 'CurricularFace': CurricularFace, 'ArcNegFace': ArcNegFace,
-                 'SVX': SVXSoftmax, 'AirFace': AirFace,'QAMFace': QAMFace
+    HEAD_DICT = {'Softmax': Softmax, 'ArcFace': ArcFace, 'Combined': Combined, 'CosFace': CosFace, 'SphereFace': SphereFace,
+                 'Am_softmax': Am_softmax, 'CurricularFace': CurricularFace, 'ArcNegFace': ArcNegFace, 'SVX': SVXSoftmax, 
+                 'AirFace': AirFace,'QAMFace': QAMFace
                 }
     HEAD_NAME = cfg['HEAD_NAME']
     EMBEDDING_SIZE = cfg['EMBEDDING_SIZE'] # feature dimension
@@ -251,7 +255,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
             elif cfg['CUTMIX']:
                     inputs, labels_a, labels_b, lam = cutmix_data(inputs, labels, cfg['GPU'], cfg['CUTMIX_PROB'], cfg['MIXUP_ALPHA'])
                     inputs, labels_a, labels_b = map(Variable, (inputs, labels_a, labels_b))
-            features, conv_features = backbone(inputs)
+            features = backbone(inputs)
             outputs = head(features, labels)
 
             if cfg['MIXUP'] or cfg['CUTMIX']:
@@ -316,7 +320,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
                     #torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
                     ori_backbone.load_state_dict(backbone.module.state_dict())
                     ori_backbone.eval()
-                    x = torch.from_numpy(np.ones([1,3,112,112],dtype=np.float32)).cuda()
+                    x = torch.randn(1,3,112,112).cuda()
                     traced_cell = torch.jit.trace(ori_backbone, (x))
                     #torch.save(ori_backbone, os.path.join(MODEL_ROOT, "model.pth"))
                     torch.jit.save(traced_cell, os.path.join(MODEL_ROOT, "Epoch_{}_Time_{}_checkpoint.pth".format(epoch + 1, get_time())))
