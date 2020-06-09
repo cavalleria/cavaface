@@ -308,7 +308,7 @@ class Backbone_92(nn.Module):
         out = self.residual_block5(out)
         conv_out = self.residual_block6(out)
         out = self.output_layer(conv_out)
-        return out, conv_out
+        return out
 
     def _initialize_weights(self):
         for m in self.modules():
