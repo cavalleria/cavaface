@@ -1,4 +1,6 @@
 ## cavaface.pytorch: A Pytorch Training Framework for Deep Face Recognition
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![HitCount](http://hits.dwyl.com/cavalleria/cavafacepytorch.svg)](http://hits.dwyl.com/cavalleria/cavafacepytorch)
 
 By Yaobin Li
 
@@ -89,6 +91,7 @@ You can change the experimental setting by simply modifying the parameter in the
 | IR-SE-100 | ArcNegface | Softmax | 24.18G | 99.1304/98.7099 | 96.81 |
 | IR-SE-100 | Curricularface | Softmax| 24.18G | 99.0497/98.6162 | 97.00 |
 | IR-SE-100 | Combined | Softmax| 24.18G | 99.0718/99.4493 | 96.83 |
+| ResNeSt-101 | Arcface | Softmax| 18.45G | 98.6279/98.7307 | 96.65 |
 
 
 
