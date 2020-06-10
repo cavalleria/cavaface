@@ -4,6 +4,8 @@
 
 By Yaobin Li
 
+## Introduction
+This repo provides a high-performance distribute parallel training framework for face recognition with pytorch, including various backbones (e.g., ResNet, IR, IR-SE, ResNeXt, AttentionNet-IR-SE, ResNeSt, HRNet, etc.), various losses (e.g., Softmax, Focal, SphereFace, CosFace, AmSoftmax, ArcFace, ArcNegFace, CurricularFace, Li-Arcface, QAMFace, etc.), various data augmentation(e.g., RandomErasing, Mixup, RandAugment, Cutout, CutMix, etc.) and bags of tricks for improving performance (e.g., FP16 training(apex), Label smooth, LR warmup, etc)
 ## Main requirements
 
   * **torch == 1.4.0**
@@ -68,10 +70,19 @@ By Yaobin Li
     * [x] LR warmup
     * [ ] Zero gamma
 
-## Usage
+## Quick start
+### Installation
+1. Install pytorch==1.4.0 following and torchvision==0.5.0[official instruction](https://pytorch.org/).
+2. Clone this repo, and we'll call the directory that you cloned as ${WORK_ROOT}.
+3. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
 
-### For training data
+### Data preparation
 please download the ms1m-retinaface in https://github.com/deepinsight/insightface/tree/master/iccv19-challenge.
+
+### Training and Testing
 ```bash
 # To train the model:
 sh train.sh
