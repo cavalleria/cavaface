@@ -80,18 +80,35 @@ This repo provides a high-performance distribute parallel training framework for
    ```
 
 ### Data preparation
-please download the ms1m-retinaface in https://github.com/deepinsight/insightface/tree/master/iccv19-challenge.
+**For training data**, please download the ms1m-retinaface in https://github.com/deepinsight/insightface/tree/master/iccv19-challenge.
+
+**For test data**, please download the megaface and ijbc in https://github.com/deepinsight/insightface/tree/master/Evaluation.
 
 ### Training and Testing
-```bash
-# To train the model:
-sh train.sh
-# To evaluate the model:
-(1)please first download the val data in https://github.com/ZhaoJ9014/face.evoLVe.PyTorch.
-(2)set the checkpoint dir in config.py
-sh evaluate.sh
+
+#### Training on ms1m-retinaface:
 ```
 You can change the experimental setting by simply modifying the parameter in the config.py
+bash train.sh
+# To evaluate the model on validation set:
+(1)please first download the val data in https://github.com/ZhaoJ9014/face.evoLVe.PyTorch.
+(2)set the checkpoint dir in config.py
+bash evaluate.sh
+```
+#### Testing on Megaface and IJBC:
+1. Put the test data and image list into proper directory.
+2. Start evaluation service.
+```
+nohup python evaluate_service.py > logs/log.service &
+```
+3. Start extracting features and evaluating.
+```
+nohup bash run.sh > logs/log &
+```
+
+
+
+
 
 ## Benchmark
 | Backbone | Head | Loss | Flops | Megaface(Id/ver@1e-6) | IJBC(tar@far=1e-4) |
@@ -112,7 +129,7 @@ You can change the experimental setting by simply modifying the parameter in the
 ## Acknowledgement
 
 * This repo is modified and adapted on these great repositories [face.evoLVe.PyTorch](https://github.com/ZhaoJ9014/face.evoLVe.PyTorch), [CurricularFace](https://github.com/HuangYG123/CurricularFace), [insightface](https://github.com/deepinsight/insightface) and [imgclsmob](https://github.com/osmr/imgclsmob/)
-
+* The evaluation tools is developed by [Charrin](https://github.com/Charrin)
 
 ## Contact
 
