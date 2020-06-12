@@ -121,7 +121,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
                      'IR_SE_50': IR_SE_50, 'IR_SE_100': IR_SE_100, 'IR_SE_101': IR_SE_101, 'IR_SE_152': IR_SE_152, 'IR_SE_185': IR_SE_185, 'IR_SE_200': IR_SE_200,
                      'AttentionNet_IR_56': AttentionNet_IR_56,'AttentionNet_IRSE_56': AttentionNet_IRSE_56,'AttentionNet_IR_92': AttentionNet_IR_92,'AttentionNet_IRSE_92': AttentionNet_IRSE_92,
                      'PolyNet': PolyNet, 'PolyFace': PolyFace, 'EfficientPolyFace': EfficientPolyFace,
-                     'ResNeSt_50': resnest50, 'ResNeSt_101': resnest101, 'ResNeSt_100': resnest100
+                     'ResNeSt_50': resnest50, 'ResNeSt_101': resnest101, 'ResNeSt_100': resnest100,
+                     'HRNet_W30': HRNet_W30, 'HRNet_W32': HRNet_W32, 'HRNet_W40': HRNet_W40, 'HRNet_W44': HRNet_W44, 'HRNet_W48': HRNet_W48, 'HRNet_W64': HRNet_W64
                     }
     BACKBONE_NAME = cfg['BACKBONE_NAME']
     INPUT_SIZE = cfg['INPUT_SIZE']
@@ -133,7 +134,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print("=" * 60)
     HEAD_DICT = {'Softmax': Softmax, 'ArcFace': ArcFace, 'Combined': Combined, 'CosFace': CosFace, 'SphereFace': SphereFace,
                  'Am_softmax': Am_softmax, 'CurricularFace': CurricularFace, 'ArcNegFace': ArcNegFace, 'SVX': SVXSoftmax, 
-                 'AirFace': AirFace,'QAMFace': QAMFace
+                 'AirFace': AirFace,'QAMFace': QAMFace, 'CircleLoss':CircleLoss
                 }
     HEAD_NAME = cfg['HEAD_NAME']
     EMBEDDING_SIZE = cfg['EMBEDDING_SIZE'] # feature dimension
@@ -179,7 +180,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
     LOSS_DICT = {'Softmax'      : nn.CrossEntropyLoss(),
                  'LabelSmooth'  : LabelSmoothCrossEntropyLoss(classes=NUM_CLASS),
                  'Focal'        : FocalLoss(),
-                 'HM'           : HardMining()}
+                 'HM'           : HardMining(),
+                 'Softplus'     : nn.Softplus()}
     loss = LOSS_DICT[LOSS_NAME].cuda(gpu)
     print("=" * 60)
     print(loss)
@@ -261,7 +263,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
             if cfg['MIXUP'] or cfg['CUTMIX']:
                 lossx = mixup_criterion(loss, outputs, labels_a, labels_b, lam)
             else:
-                lossx = loss(outputs, labels)
+                lossx = loss(outputs, labels) if HEAD_NAME != 'CircleLoss' else loss(outputs).mean()
             end_time = time.time()
             duration = end_time - start_time
             if ((batch + 1) % DISP_FREQ == 0) and batch != 0:
@@ -277,7 +279,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
             optimizer.step()
 
             # measure accuracy and record loss
-            prec1, prec5 = accuracy(outputs.data, labels, topk = (1, 5))
+            prec1, prec5 = accuracy(outputs.data, labels, topk = (1, 5)) if HEAD_NAME != 'CircleLoss' else accuracy(features.data, labels, topk = (1, 5))
             losses.update(lossx.data.item(), inputs.size(0))
             top1.update(prec1.data.item(), inputs.size(0))
             top5.update(prec5.data.item(), inputs.size(0))
