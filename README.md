@@ -86,7 +86,7 @@ This repo provides a high-performance distribute parallel training framework for
 
 ### Training and Testing
 
-#### Training on ms1m-retinaface:
+#### Training on ms1m-retinaface
 ```
 You can change the experimental setting by simply modifying the parameter in the config.py
 bash train.sh
@@ -95,7 +95,7 @@ bash train.sh
 (2)set the checkpoint dir in config.py
 bash evaluate.sh
 ```
-#### Testing on Megaface and IJBC:
+#### Testing on Megaface and IJBC
 1. Put the test data and image list into proper directory.
 2. Start evaluation service.
 ```
@@ -119,6 +119,7 @@ nohup bash run.sh > logs/log &
 | IR-SE-100 | ArcNegface | Softmax | 24.18G | 99.1304/98.7099 | 96.81 |
 | IR-SE-100 | Curricularface | Softmax| 24.18G | 99.0497/98.6162 | 97.00 |
 | IR-SE-100 | Combined | Softmax| 24.18G | 99.0718/99.4493 | 96.83 |
+| IR-SE-100 | CircleLoss | Softmax| 24.18G | 98.5732/98.4834 | 96.52 |
 | ResNeSt-101 | Arcface | Softmax| 18.45G | 98.6279/98.7307 | 96.65 |
 
 
