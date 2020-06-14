@@ -120,7 +120,7 @@ nohup bash run.sh > logs/log &
 | IR-SE-100 | Curricularface | Softmax| 24.18G | 99.0497/98.6162 | 97.00 |
 | IR-SE-100 | Combined | Softmax| 24.18G | 99.0718/99.4493 | 96.83 |
 | IR-SE-100 | CircleLoss | Softmax| 24.18G | 98.5732/98.4834 | 96.52 |
-| ResNeSt-101 | Arcface | Softmax| 18.45G | 98.6279/98.7307 | 96.65 |
+| ResNeSt-101 | Arcface | Softmax| 18.45G | 98.8746/98.5615 | 96.63 |
 
 
 

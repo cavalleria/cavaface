@@ -76,7 +76,7 @@ class Bottleneck(nn.Module):
         if last_gamma:
             from torch.nn.init import zeros_
             zeros_(self.bn3.weight)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.PReLU()
         self.downsample = downsample
         self.dilation = dilation
         self.stride = stride
@@ -172,17 +172,17 @@ class ResNet(nn.Module):
             self.conv1 = nn.Sequential(
                 conv_layer(3, stem_width, kernel_size=3, stride=2, padding=1, bias=False, **conv_kwargs),
                 norm_layer(stem_width),
-                nn.ReLU(inplace=True),
+                nn.PReLU(stem_width),
                 conv_layer(stem_width, stem_width, kernel_size=3, stride=1, padding=1, bias=False, **conv_kwargs),
                 norm_layer(stem_width),
-                nn.ReLU(inplace=True),
+                nn.PReLU(stem_width),
                 conv_layer(stem_width, stem_width*2, kernel_size=3, stride=1, padding=1, bias=False, **conv_kwargs),
             )
         else:
             self.conv1 = conv_layer(3, 64, kernel_size=7, stride=2, padding=3,
                                    bias=False, **conv_kwargs)
         self.bn1 = norm_layer(self.inplanes)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.PReLU(self.inplanes)
         #self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0], norm_layer=norm_layer, is_first=False)
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2, norm_layer=norm_layer)
@@ -223,6 +223,10 @@ class ResNet(nn.Module):
             elif isinstance(m, norm_layer):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    m.bias.data.zero_()
 
     def _make_layer(self, block, planes, blocks, stride=1, dilation=1, norm_layer=None,
                     dropblock_prob=0.0, is_first=True):
