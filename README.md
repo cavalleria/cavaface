@@ -72,7 +72,7 @@ This repo provides a high-performance distribute parallel training framework for
 
 ## Quick start
 ### Installation
-1. Install pytorch==1.4.0 following and torchvision==0.5.0[official instruction](https://pytorch.org/).
+1. Install pytorch==1.4.0 and torchvision==0.5.0 following [official instruction](https://pytorch.org/).
 2. Clone this repo, and we'll call the directory that you cloned as ${WORK_ROOT}.
 3. Install dependencies:
    ```
@@ -119,7 +119,7 @@ nohup bash run.sh > logs/log &
 | IR-SE-100 | ArcNegface | Softmax | 24.18G | 99.1304/98.7099 | 96.81 |
 | IR-SE-100 | Curricularface | Softmax| 24.18G | 99.0497/98.6162 | 97.00 |
 | IR-SE-100 | Combined | Softmax| 24.18G | 99.0718/99.4493 | 96.83 |
-| IR-SE-100 | CircleLoss | Softmax| 24.18G | 98.5732/98.4834 | 96.52 |
+| IR-SE-100 | CircleLoss | Softplus| 24.18G | 98.5732/98.4834 | 96.52 |
 | ResNeSt-101 | Arcface | Softmax| 18.45G | 98.8746/98.5615 | 96.63 |
 
 
