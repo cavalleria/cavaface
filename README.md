@@ -25,7 +25,7 @@ This repo provides a high-performance distribute parallel training framework for
     * [ ] EfficientNet
     * [ ] VargFaceNet
     * [ ] ProxylessNas
-    * [ ] GhostNet
+    * [x] GhostNet
     * [x] AttentionNet-IRSE
     * [x] EfficientPolyFace
     * [x] ResNeSt
