@@ -509,11 +509,11 @@ class Linear_block(Module):
         return x
 
 class GDC(nn.Module):
-    def __init__(self, embedding_size):
+    def __init__(self, in_c, embedding_size):
         super(GDC, self).__init__()
-        self.conv_6_dw = Linear_block(512, 512, groups=512, kernel=(7,7), stride=(1, 1), padding=(0, 0))
+        self.conv_6_dw = Linear_block(in_c, in_c, groups=in_c, kernel=(7,7), stride=(1, 1), padding=(0, 0))
         self.conv_6_flatten = Flatten()
-        self.linear = nn.Linear(512, embedding_size, bias=False)
+        self.linear = nn.Linear(in_c, embedding_size, bias=False)
         #self.bn = BatchNorm1d(embedding_size, affine=False)
         self.bn = nn.BatchNorm1d(embedding_size)
 

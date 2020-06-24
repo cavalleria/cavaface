@@ -6,6 +6,9 @@ GhostNet: More Features from Cheap Operations By Kai Han, Yunhe Wang, Qi Tian, J
 https://arxiv.org/abs/1911.11907
 Modified from https://github.com/d-li14/mobilenetv3.pytorch and https://github.com/rwightman/pytorch-image-models
 """
+# ------------------------------------------------------------------------------
+# Updated by cavalleria (cavalleria@gmail.com)
+# ------------------------------------------------------------------------------
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -204,7 +207,7 @@ cfgs = [
         ]
 
 class GhostNet(nn.Module):
-    def __init__(self, input_size, embedding_size = 512, width=1.0):
+    def __init__(self, input_size, embedding_size = 512, width=1.3):
         super(GhostNet, self).__init__()
         # setting of inverted residual blocks
         assert input_size[0] in [112]
@@ -243,7 +246,7 @@ class GhostNet(nn.Module):
         #self.act2 = nn.ReLU(inplace=True)
         #self.classifier = nn.Linear(output_channel, num_classes)
 
-        self.output_layer = GDC(embedding_size)
+        self.output_layer = GDC(664, embedding_size)
         self._initialize_weights()
 
     def _initialize_weights(self):
