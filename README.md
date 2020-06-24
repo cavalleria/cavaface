@@ -115,6 +115,7 @@ nohup bash run.sh > logs/log &
 | :----: | :----: | :----:| :----: | :----: | :----: |
 | MobileFaceNet | Arcface | Softmax | 440M | 92.8694/93.6329 | 92.80 |
 | GhostNet | Arcface | Softmax | 270M | 93.3914/94.3359 | 93.50 |
+| GhostNet_x1.3 | Arcface | Softmax | 440M | 95.3005/95.7757 | 94.27 |
 | AttentionNet-IRSE-92 | MV-AM | Softmax | 17.63G | 99.1356/99.3999 | 96.56 |
 | IR-SE-100 | Arcface | Softmax | 24.18G | 99.0881/99.4259 | 96.69 |
 | IR-SE-100 | ArcNegface | Softmax | 24.18G | 99.1304/98.7099 | 96.81 |
