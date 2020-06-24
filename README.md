@@ -111,8 +111,37 @@ nohup bash run.sh > logs/log &
 
 
 ## Benchmark
+<style>
+  table {
+    width: 100%; /*表格宽度*/
+    border-collapse: collapse; /*使用单一线条的边框*/
+    empty-cells: show; /*单元格无内容依旧绘制边框*/
+  }
+	
+  table th,td {
+    height: 25px; /*统一每一行的默认高度*/
+  }
+	
+  table th {
+    font-weight: bold; /*加粗*/
+    text-align: center !important; /*内容居中，加上 !important 避免被 Markdown 样式覆盖*/
+    background: #ECF2F9; /*背景色*/
+    white-space: nowrap; /*表头内容强制在一行显示*/
+  }
+		
+  /* 首列不换行 */
+  table td:nth-child(1) {
+    white-space: nowrap; 
+  }
+  
+  /* 指定列宽度 */
+  table th:nth-of-type(2) {
+    width: 40px;
+    white-space: nowrap;
+  }
+  </style>
 | Backbone | Head | Loss | Flops | Megaface(Id/ver@1e-6) | IJBC(tar@far=1e-4) |
-| ------ | ---- | ---- | ---- | :------: | :------: |
+| :----: | :----: | :----: | :----: | :----: | :----: |
 | MobileFaceNet | Arcface | Softmax | 440M | 92.8694/93.6329 | 92.80 |
 | GhostNet | Arcface | Softmax | 270M | 93.3914/94.3359 | 93.50 |
 | GhostNet_x1.3 | Arcface | Softmax | 440M | 95.3005/95.7757 | 94.27 |
