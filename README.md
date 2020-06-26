@@ -21,10 +21,10 @@ This repo provides a high-performance distribute parallel training framework for
     * [x] ResNeXt
     * [ ] DenseNet
     * [x] MobileFaceNet
-    * [ ] MobileNetV3
+    * [x] MobileNetV3
     * [ ] EfficientNet
     * [ ] VargFaceNet
-    * [ ] ProxylessNas
+    * [x] ProxylessNas
     * [x] GhostNet
     * [x] AttentionNet-IRSE
     * [x] EfficientPolyFace

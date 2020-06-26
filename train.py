@@ -25,6 +25,8 @@ from backbone.resattnet import *
 from backbone.efficientpolyface import *
 from backbone.resnest import *
 from backbone.ghostnet import *
+from backbone.mobilenetv3 import *
+from backbone.proxylessnas import *
 from head.metrics import *
 from loss.loss import *
 from util.utils import *
@@ -123,7 +125,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
                      'AttentionNet_IR_56': AttentionNet_IR_56,'AttentionNet_IRSE_56': AttentionNet_IRSE_56,'AttentionNet_IR_92': AttentionNet_IR_92,'AttentionNet_IRSE_92': AttentionNet_IRSE_92,
                      'PolyNet': PolyNet, 'PolyFace': PolyFace, 'EfficientPolyFace': EfficientPolyFace,
                      'ResNeSt_50': resnest50, 'ResNeSt_101': resnest101, 'ResNeSt_100': resnest100,
-                     'GhostNet': GhostNet
+                     'GhostNet': GhostNet, 'MobileNetV3': MobileNetV3, 'ProxylessNAS': proxylessnas
                     } #'HRNet_W30': HRNet_W30, 'HRNet_W32': HRNet_W32, 'HRNet_W40': HRNet_W40, 'HRNet_W44': HRNet_W44, 'HRNet_W48': HRNet_W48, 'HRNet_W64': HRNet_W64
 
     BACKBONE_NAME = cfg['BACKBONE_NAME']
