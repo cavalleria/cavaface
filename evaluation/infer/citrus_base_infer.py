@@ -168,8 +168,7 @@ class inferThread (threading.Thread):
             if idx == 0:
               continue
 
-            output = self.fwd_func(self.net, input_blob)
-            embedding = output[0]
+            embedding = self.fwd_func(self.net, input_blob)
     
             if self.is_flip:
                 embedding1 = embedding[0::2]
