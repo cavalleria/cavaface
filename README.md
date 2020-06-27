@@ -117,6 +117,7 @@ nohup bash run.sh > logs/log &
 | GhostNet | Arcface | Softmax | 270M | 93.3914/94.3359 | 93.50 |
 | GhostNet_x1.3 | Arcface | Softmax | 440M | 95.3005/95.7757 | 94.27 |
 | MobileNetV3 | Arcface | Softmax | 430M | 93.9805/95.7314 | 93.57 |
+| ProxylessNAS | Arcface | Softmax | 630M | 93.2886/95.2094 | 93.74 |
 | AttentionNet-IRSE-92 | MV-AM | Softmax | 17.63G | 99.1356/99.3999 | 96.56 |
 | IR-SE-100 | Arcface | Softmax | 24.18G | 99.0881/99.4259 | 96.69 |
 | IR-SE-100 | ArcNegface | Softmax | 24.18G | 99.1304/98.7099 | 96.81 |
