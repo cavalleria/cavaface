@@ -352,7 +352,7 @@ class EfficientNet(nn.Module):
         return x
 
 
-def efficientnet(input_size, embedding_size=512, version='b0c', **kwargs):
+def efficientnet(input_size, embedding_size=512, version='b1', **kwargs):
     """
     Create EfficientNet model with specific parameters.
     """
