@@ -110,7 +110,7 @@ nohup bash run.sh > logs/log &
 | :----: | :----: | :----: | :----: | :----: | :----: |
 | MobileFaceNet | Arcface | Softmax | 440M | 92.8694/93.6329 | 92.80 |
 | GhostNet | Arcface | Softmax | 270M | 93.3914/94.3359 | 93.50 |
-| GhostNet_x1.3 | Arcface | Softmax | 440M | 95.3005/95.7757 | 94.27 |
+| [GhostNet_x1.3](https://drive.google.com/file/d/1KVgXIJo2Ym0Ffp3yK9FrIaiqjdAr2KFX/view?usp=sharing) | Arcface | Softmax | 440M | 95.3005/95.7757 | 94.27 |
 | MobileNetV3 | Arcface | Softmax | 430M | 93.9805/95.7314 | 93.57 |
 | ProxylessNAS_mobile | Arcface | Softmax | 630M | 93.2886/95.2094 | 93.74 |
 | ProxylessNAS_cpu | Arcface | Softmax | 860M | 95.4242/95.79 | 94.22 |
@@ -120,7 +120,7 @@ nohup bash run.sh > logs/log &
 | IR-SE-100 | Arcface | Softmax | 24.18G | 99.0881/99.4259 | 96.69 |
 | IR-SE-100 | ArcNegface | Softmax | 24.18G | 99.1304/98.7099 | 96.81 |
 | IR-SE-100 | Curricularface | Softmax| 24.18G | 99.0497/98.6162 | 97.00 |
-| IR-SE-100 | Combined | Softmax| 24.18G | 99.0718/99.4493 | 96.83 |
+| [IR-SE-100](https://drive.google.com/file/d/1HdXgFmyMX4MGETTx6ACmx8AB-v79hrhp/view?usp=sharing) | Combined | Softmax| 24.18G | 99.0718/99.4493 | 96.83 |
 | IR-SE-100 | CircleLoss | Softplus| 24.18G | 98.5732/98.4834 | 96.52 |
 | ResNeSt-101 | Arcface | Softmax| 18.45G | 98.8746/98.5615 | 96.63 |
 
