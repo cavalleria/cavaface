@@ -122,6 +122,7 @@ nohup bash run.sh > logs/log &
 | [IR-SE-100](https://drive.google.com/file/d/1HdXgFmyMX4MGETTx6ACmx8AB-v79hrhp/view?usp=sharing) | Combined | Softmax| 24.18G | 99.0718/99.4493 | 96.83 |
 | IR-SE-100 | CircleLoss | Softplus| 24.18G | 98.5732/98.4834 | 96.52 |
 | ResNeSt-101 | Arcface | Softmax| 18.45G | 98.8746/98.5615 | 96.63 |
+| DenseNet-201 | Arcface | Softmax| 8.52G | 98.3649/98.4294 | 96.03 |
 
 
 
