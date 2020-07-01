@@ -1,7 +1,7 @@
 import math
 import torch
 import itertools as it
-from torch.optim import Optimizer, required
+from torch.optim import Optimizer
 from collections import defaultdict
 
 class Lookahead(Optimizer):
