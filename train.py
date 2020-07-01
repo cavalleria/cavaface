@@ -165,6 +165,10 @@ def main_worker(gpu, ngpus_per_node, cfg):
     else:
         backbone_paras_only_bn, backbone_paras_wo_bn = separate_resnet_bn_paras(backbone) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
 
+    torch.cuda.set_device(cfg['GPU'])
+    backbone.cuda(cfg['GPU'])
+    head.cuda(cfg['GPU'])
+
     LR = cfg['LR'] # initial LR
     WEIGHT_DECAY = cfg['WEIGHT_DECAY']
     MOMENTUM = cfg['MOMENTUM']
@@ -175,12 +179,16 @@ def main_worker(gpu, ngpus_per_node, cfg):
     elif OPTIMIZER == 'adam':
         optimizer = optim.Adam(params, lr=LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
     elif OPTIMIZER == 'lookahead':
-        base_optimizer = optim.Adam(params, lr = LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+        base_optimizer = optim.Adam(params, lr=LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
         optimizer = Lookahead(optimizer=base_optimizer, k=5, alpha=0.5)
     elif OPTIMIZER == 'radam':
-        optimizer = RAdam(params, lr = LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
+        optimizer = RAdam(params, lr=LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
     elif OPTIMIZER == 'ranger':
-        optimizer = Ranger(params, lr = LR, alpha=0.5, k=6)
+        optimizer = Ranger(params, lr=LR, alpha=0.5, k=6)
+    elif OPTIMIZER == 'adamp':
+        optimizer = AdamP(params, lr=LR, betas=(0.9, 0.999), weight_decay=WEIGHT_DECAY)
+    elif OPTIMIZER == 'sgdp':
+        optimizer == SGDP(params, lr=LR, weight_decay=WEIGHT_DECAY, momentum=MOMENTUM, nesterov=False)
     
     if LR_SCHEDULER == 'step':
         scheduler = StepLR(optimizer, step_size=LR_STEP_SIZE, gamma=LR_DECAT_GAMMA)
@@ -207,9 +215,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print("{} Loss Generated".format(loss))
     print("=" * 60)
 
-    torch.cuda.set_device(cfg['GPU'])
-    backbone.cuda(cfg['GPU'])
-    head.cuda(cfg['GPU'])
+
 
     #optionally resume from a checkpoint
     BACKBONE_RESUME_ROOT = cfg['BACKBONE_RESUME_ROOT'] # the root to resume training from a saved checkpoint
