@@ -170,13 +170,13 @@ def main_worker(gpu, ngpus_per_node, cfg):
     MOMENTUM = cfg['MOMENTUM']
     params = [{'params': backbone_paras_wo_bn + list(head.parameters()), 'weight_decay': WEIGHT_DECAY},
             {'params': backbone_paras_only_bn}]
-    if OPTIMIZER == 'sgd'
-        optimizer = optim.SGD(params, lr = LR, momentum = MOMENTUM)
+    if OPTIMIZER == 'sgd':
+        optimizer = optim.SGD(params, lr=LR, momentum=MOMENTUM)
     elif OPTIMIZER == 'adam':
-        optimizer = optim.Adam(params, lr = LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+        optimizer = optim.Adam(params, lr=LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
     elif OPTIMIZER == 'lookahead':
         base_optimizer = optim.Adam(params, lr = LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
-        optimizer = Lookahead(base_optimizer=base_optimizer, k=5, alpha=0.5)
+        optimizer = Lookahead(optimizer=base_optimizer, k=5, alpha=0.5)
     elif OPTIMIZER == 'radam':
         optimizer = RAdam(params, lr = LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
     elif OPTIMIZER == 'ranger':
