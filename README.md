@@ -53,9 +53,8 @@ This repo provides a high-performance distribute parallel training framework for
     * [x] Apex
   * **Optimizer**
     * [x] LR_Scheduler([faireq](https://github.com/pytorch/fairseq/tree/master/fairseq/optim/lr_scheduler),[rwightman](https://github.com/rwightman/pytorch-image-models/tree/master/timm/scheduler))
-    * [ ] Optim(SGD,Adam,[LookAhead](https://github.com/lonePatient/lookahead_pytorch))
+    * [x] Optim(SGD,Adam,RAdam,[LookAhead](https://github.com/lonePatient/lookahead_pytorch),Ranger)
   * **[Data Augmentation](https://github.com/albumentations-team/albumentations)**
-    * [ ] Blur
     * [x] [RandomErasing](https://github.com/zhunzhong07/Random-Erasing/blob/master/transforms.py)(官方版torchvision.transforms.RandomErasing)
     * [x] Mixup
     * [x] RandAugment
