@@ -27,6 +27,8 @@ from backbone.resnest import *
 from backbone.ghostnet import *
 from backbone.mobilenetv3 import *
 from backbone.proxylessnas import *
+from backbone.efficientnet import *
+from backbone.densenet import *
 from head.metrics import *
 from loss.loss import *
 from util.utils import *
@@ -52,10 +54,6 @@ def set_seed(seed):
 
 def main():
     cfg = configurations[1]
-    SEED = cfg['SEED'] # random seed for reproduce results
-    set_seed(int(SEED))
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cudnn.deterministic = True
     ngpus_per_node = len(cfg['GPU'])
     world_size = cfg['WORLD_SIZE']
     cfg['WORLD_SIZE'] = ngpus_per_node * world_size
@@ -63,6 +61,10 @@ def main():
 
 def main_worker(gpu, ngpus_per_node, cfg):
     cfg['GPU'] = gpu
+    SEED = cfg['SEED'] # random seed for reproduce results
+    set_seed(SEED)
+    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.deterministic = True
     if gpu != 0:
         def print_pass(*args):
             pass
@@ -125,7 +127,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
                      'AttentionNet_IR_56': AttentionNet_IR_56,'AttentionNet_IRSE_56': AttentionNet_IRSE_56,'AttentionNet_IR_92': AttentionNet_IR_92,'AttentionNet_IRSE_92': AttentionNet_IRSE_92,
                      'PolyNet': PolyNet, 'PolyFace': PolyFace, 'EfficientPolyFace': EfficientPolyFace,
                      'ResNeSt_50': resnest50, 'ResNeSt_101': resnest101, 'ResNeSt_100': resnest100,
-                     'GhostNet': GhostNet, 'MobileNetV3': MobileNetV3, 'ProxylessNAS': proxylessnas
+                     'GhostNet': GhostNet, 'MobileNetV3': MobileNetV3, 'ProxylessNAS': proxylessnas, 'EfficientNet': efficientnet,
+                     'DenseNet': densenet
                     } #'HRNet_W30': HRNet_W30, 'HRNet_W32': HRNet_W32, 'HRNet_W40': HRNet_W40, 'HRNet_W44': HRNet_W44, 'HRNet_W48': HRNet_W48, 'HRNet_W64': HRNet_W64
 
     BACKBONE_NAME = cfg['BACKBONE_NAME']
