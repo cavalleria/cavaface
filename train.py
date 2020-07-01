@@ -43,6 +43,7 @@ from apex.parallel import DistributedDataParallel as DDP
 from apex import amp
 from util.flops_counter import *
 from optimizer.lr_scheduler import *
+from optimizer.optimizer import *
 #from torchprofile import profile_macs
 
 def set_seed(seed):
@@ -83,6 +84,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
     RGB_MEAN = cfg['RGB_MEAN'] # for normalize inputs
     RGB_STD = cfg['RGB_STD']
     DROP_LAST = cfg['DROP_LAST']
+    OPTIMIZER = cfg['OPTIMIZER']
     LR_SCHEDULER = cfg['LR_SCHEDULER']
     LR_STEP_SIZE = cfg['LR_STEP_SIZE']
     LR_DECAY_EPOCH = cfg['LR_DECAY_EPOCH']
@@ -166,10 +168,20 @@ def main_worker(gpu, ngpus_per_node, cfg):
     LR = cfg['LR'] # initial LR
     WEIGHT_DECAY = cfg['WEIGHT_DECAY']
     MOMENTUM = cfg['MOMENTUM']
-    optimizer = optim.SGD([
-                            {'params': backbone_paras_wo_bn + list(head.parameters()), 'weight_decay': WEIGHT_DECAY},
-                            {'params': backbone_paras_only_bn}
-                            ], lr = LR, momentum = MOMENTUM)
+    params = [{'params': backbone_paras_wo_bn + list(head.parameters()), 'weight_decay': WEIGHT_DECAY},
+            {'params': backbone_paras_only_bn}]
+    if OPTIMIZER == 'sgd'
+        optimizer = optim.SGD(params, lr = LR, momentum = MOMENTUM)
+    elif OPTIMIZER == 'adam':
+        optimizer = optim.Adam(params, lr = LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+    elif OPTIMIZER == 'lookahead':
+        base_optimizer = optim.Adam(params, lr = LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+        optimizer = Lookahead(base_optimizer=base_optimizer, k=5, alpha=0.5)
+    elif OPTIMIZER == 'radam':
+        optimizer = RAdam(params, lr = LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
+    elif OPTIMIZER == 'ranger':
+        optimizer = Ranger(params, lr = LR, alpha=0.5, k=6)
+    
     if LR_SCHEDULER == 'step':
         scheduler = StepLR(optimizer, step_size=LR_STEP_SIZE, gamma=LR_DECAT_GAMMA)
     elif LR_SCHEDULER == 'multi_step':
