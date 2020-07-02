@@ -186,9 +186,9 @@ def main_worker(gpu, ngpus_per_node, cfg):
     elif OPTIMIZER == 'ranger':
         optimizer = Ranger(params, lr=LR, alpha=0.5, k=6)
     elif OPTIMIZER == 'adamp':
-        optimizer = AdamP(params, lr=LR, betas=(0.9, 0.999), weight_decay=WEIGHT_DECAY)
+        optimizer = AdamP(params, lr=LR, betas=(0.9, 0.999), weight_decay=1e-2)
     elif OPTIMIZER == 'sgdp':
-        optimizer == SGDP(params, lr=LR, weight_decay=WEIGHT_DECAY, momentum=MOMENTUM, nesterov=False)
+        optimizer = SGDP(params, lr=LR, weight_decay=1e-5, momentum=0.9, nesterov=True)
     
     if LR_SCHEDULER == 'step':
         scheduler = StepLR(optimizer, step_size=LR_STEP_SIZE, gamma=LR_DECAT_GAMMA)
