@@ -30,9 +30,8 @@ This repo provides a high-performance distribute parallel training framework for
     * [x] ResNeSt
   * **Attention Module**
     * [x] SE
-    * [ ] CBAM
-    * [ ] ECA
-    * [ ] ACNet
+    * [x] CBAM
+    * [x] ECA
   * **Loss**
     * [x] Softmax
     * [x] SphereFace

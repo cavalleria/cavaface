@@ -2,9 +2,6 @@
     Common routines for models in PyTorch.
 """
 
-__all__ = ['round_channels', 'Identity', 'Swish', 'HSigmoid', 'HSwish', 'get_activation_layer', 'InterpolationBlock',
-           'IBN', 'Flatten', 'l2_norm', 'SEModule', 'bottleneck_IR', 'bottleneck_IR_SE']
-
 import math
 from inspect import isfunction
 import torch
@@ -225,14 +222,12 @@ class SEModule(Module):
     def __init__(self, channels, reduction):
         super(SEModule, self).__init__()
         self.avg_pool = AdaptiveAvgPool2d(1)
-        self.fc1 = Conv2d(
-            channels, channels // reduction, kernel_size=1, padding=0, bias=False)
+        self.fc1 = Conv2d(channels, channels // reduction, kernel_size=1, padding=0, bias=False)
 
         nn.init.xavier_uniform_(self.fc1.weight.data)
 
         self.relu = ReLU(inplace=True)
-        self.fc2 = Conv2d(
-            channels // reduction, channels, kernel_size=1, padding=0, bias=False)
+        self.fc2 = Conv2d(channels // reduction, channels, kernel_size=1, padding=0, bias=False)
 
         self.sigmoid = Sigmoid()
 
@@ -701,3 +696,93 @@ def pre_conv3x3_block(in_channels, out_channels, stride=1, padding=1, dilation=1
     """
     return PreConvBlock(in_channels=in_channels, out_channels=out_channels, kernel_size=3, stride=stride,
         padding=padding, dilation=dilation, bias=bias, use_bn=use_bn, return_preact=return_preact, activate=activate)
+
+class ECA_Layer(nn.Module):
+    """Constructs a ECA module.
+    Args:
+        channel: Number of channels of the input feature map
+        k_size: Adaptive selection of kernel size
+    """
+    def __init__(self, channel, k_size=3):
+        super(ECA_Layer, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.conv = nn.Conv1d(1, 1, kernel_size=k_size, padding=(k_size - 1) // 2, bias=False) 
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        # x: input features with shape [b, c, h, w]
+        b, c, h, w = x.size()
+
+        # feature descriptor on the global spatial information
+        y = self.avg_pool(x)
+
+        # Two different branches of ECA module
+        y = self.conv(y.squeeze(-1).transpose(-1, -2)).transpose(-1, -2).unsqueeze(-1)
+
+        # Multi-scale information fusion
+        y = self.sigmoid(y)
+
+        return x * y.expand_as(x)
+
+class MLP(nn.Module):
+    def __init__(self, channels, reduction_ratio=16):
+        super(MLP, self).__init__()
+        mid_channels = channels // reduction_ratio
+
+        self.fc1 = nn.Linear(in_features=channels, out_features=mid_channels)
+        self.activ = nn.ReLU(inplace=True)
+        self.fc2 = nn.Linear(in_features=mid_channels, out_features=channels)
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        x = self.fc1(x)
+        x = self.activ(x)
+        x = self.fc2(x)
+        return x
+
+class ChannelGate(nn.Module):
+    def __init__(self, channels, reduction_ratio=16):
+        super(ChannelGate, self).__init__()
+
+        self.avg_pool = nn.AdaptiveAvgPool2d(output_size=(1, 1))
+        self.max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 1))
+        self.mlp = MLP(channels=channels, reduction_ratio=reduction_ratio)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        att1 = self.avg_pool(x)
+        att1 = self.mlp(att1)
+        att2 = self.max_pool(x)
+        att2 = self.mlp(att2)
+        att = att1 + att2
+        att = self.sigmoid(att)
+        att = att.unsqueeze(2).unsqueeze(3).expand_as(x)
+        x = x * att
+        return x
+
+class SpatialGate(nn.Module):
+    def __init__(self):
+        super(SpatialGate, self).__init__()
+        self.conv ConvBlock(in_channels=2, out_channels=1, kernel_size=7, 
+                            stride=1, padding=3, bias=False, use_bn=True, activation=None)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        att1 = x.max(dim=1)[0].unsqueeze(1)
+        att2 = x.mean(dim=1).unsqueeze(1)
+        att = torch.cat((att1, att2), dim=1)
+        att = self.conv(att)
+        att = self.sigmoid(att)
+        x = x * att
+        return x
+
+class CbamBlock(nn.Module):
+    def __init__(self, channels, reduction_ratio=16):
+        super(CbamBlock, self).__init__()
+        self.ch_gate = ChannelGate(channels=channels, reduction_ratio=reduction_ratio)
+        self.sp_gate = SpatialGate()
+
+    def forward(self, x):
+        x = self.ch_gate(x)
+        x = self.sp_gate(x)
+        return x

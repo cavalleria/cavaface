@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from collections import namedtuple
 import math
-import pdb
+from .common import ECA_Layer, SEBlock, CbamBlock
 
 ##################################  Original Arcface Model #############################################################
 
@@ -42,13 +42,24 @@ class Depth_Wise(Module):
         self.conv = Conv_block(in_c, out_c=groups, kernel=(1, 1), padding=(0, 0), stride=(1, 1))
         self.conv_dw = Conv_block(groups, groups, groups=groups, kernel=kernel, padding=padding, stride=stride)
         self.project = Linear_block(groups, out_c, kernel=(1, 1), padding=(0, 0), stride=(1, 1))
+        self.eca_layer = ECA_Layer(out_c, kernel[0])
+        self.se_layer = SEBlock(out_c)
+        self.cbam_layer = CbamBlock(out_c)
         self.residual = residual
+
+        self.attention = 'eca' # se, eca, cbam
      def forward(self, x):
         if self.residual:
             short_cut = x
         x = self.conv(x)
         x = self.conv_dw(x)
         x = self.project(x)
+        if self.attention == 'eca':
+            x = self.eca_layer(x)
+        elif self.attention == 'se':
+            x = self.SEBlock(x)
+        elif self.attention == 'cbam':
+            x = self.CbamBlock(x)
         if self.residual:
             output = short_cut + x
         else:
