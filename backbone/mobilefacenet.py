@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from collections import namedtuple
 import math
-from .common import ECA_Layer, SEBlock, CbamBlock
+from .common import ECA_Layer, SEBlock, CbamBlock, Identity
 
 ##################################  Original Arcface Model #############################################################
 
@@ -37,29 +37,30 @@ class Linear_block(Module):
         return x
 
 class Depth_Wise(Module):
-     def __init__(self, in_c, out_c, residual = False, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=1):
+     def __init__(self, in_c, out_c, attention, residual=False, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=1):
         super(Depth_Wise, self).__init__()
         self.conv = Conv_block(in_c, out_c=groups, kernel=(1, 1), padding=(0, 0), stride=(1, 1))
         self.conv_dw = Conv_block(groups, groups, groups=groups, kernel=kernel, padding=padding, stride=stride)
         self.project = Linear_block(groups, out_c, kernel=(1, 1), padding=(0, 0), stride=(1, 1))
-        self.eca_layer = ECA_Layer(out_c, kernel[0])
-        self.se_layer = SEBlock(out_c)
-        self.cbam_layer = CbamBlock(out_c)
+        self.attention = attention
+        if self.attention == 'eca':
+            self.attention_layer = ECA_Layer(out_c, kernel[0])
+        elif self.attention == 'se':
+            self.attention_layer = SEBlock(out_c)
+        elif self.attention == 'cbam':
+            self.attention_layer = CbamBlock(out_c)
+
         self.residual = residual
 
-        self.attention = 'eca' # se, eca, cbam
+        self.attention = attention #se, eca, cbam
      def forward(self, x):
         if self.residual:
             short_cut = x
         x = self.conv(x)
         x = self.conv_dw(x)
         x = self.project(x)
-        if self.attention == 'eca':
-            x = self.eca_layer(x)
-        elif self.attention == 'se':
-            x = self.SEBlock(x)
-        elif self.attention == 'cbam':
-            x = self.CbamBlock(x)
+        if self.attention != 'none':
+            x = self.attention_layer(x)
         if self.residual:
             output = short_cut + x
         else:
@@ -67,11 +68,11 @@ class Depth_Wise(Module):
         return output
 
 class Residual(Module):
-    def __init__(self, c, num_block, groups, kernel=(3, 3), stride=(1, 1), padding=(1, 1)):
+    def __init__(self, c, attention, num_block, groups, kernel=(3, 3), stride=(1, 1), padding=(1, 1)):
         super(Residual, self).__init__()
         modules = []
         for _ in range(num_block):
-            modules.append(Depth_Wise(c, c, residual=True, kernel=kernel, padding=padding, stride=stride, groups=groups))
+            modules.append(Depth_Wise(c, c, attention, residual=True, kernel=kernel, padding=padding, stride=stride, groups=groups))
         self.model = Sequential(*modules)
     def forward(self, x):
         return self.model(x)
@@ -113,18 +114,19 @@ class GDC(Module):
         return x
 
 class MobileFaceNet(Module):
-    def __init__(self, input_size, embedding_size = 512, output_name = "GDC"):
+    def __init__(self, input_size, embedding_size = 512, output_name = "GDC", attention='se'):
         super(MobileFaceNet, self).__init__()
         assert output_name in ["GNAP", 'GDC']
         assert input_size[0] in [112]
+
         self.conv1 = Conv_block(3, 64, kernel=(3, 3), stride=(2, 2), padding=(1, 1))
         self.conv2_dw = Conv_block(64, 64, kernel=(3, 3), stride=(1, 1), padding=(1, 1), groups=64)
-        self.conv_23 = Depth_Wise(64, 64, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=128)
-        self.conv_3 = Residual(64, num_block=4, groups=128, kernel=(3, 3), stride=(1, 1), padding=(1, 1))
-        self.conv_34 = Depth_Wise(64, 128, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=256)
-        self.conv_4 = Residual(128, num_block=6, groups=256, kernel=(3, 3), stride=(1, 1), padding=(1, 1))
-        self.conv_45 = Depth_Wise(128, 128, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=512)
-        self.conv_5 = Residual(128, num_block=2, groups=256, kernel=(3, 3), stride=(1, 1), padding=(1, 1))
+        self.conv_23 = Depth_Wise(64, 64, attention, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=128)
+        self.conv_3 = Residual(64, attention, num_block=4, groups=128, kernel=(3, 3), stride=(1, 1), padding=(1, 1))
+        self.conv_34 = Depth_Wise(64, 128, attention, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=256)
+        self.conv_4 = Residual(128, attention, num_block=6, groups=256, kernel=(3, 3), stride=(1, 1), padding=(1, 1))
+        self.conv_45 = Depth_Wise(128, 128, attention, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=512)
+        self.conv_5 = Residual(128, attention, num_block=2, groups=256, kernel=(3, 3), stride=(1, 1), padding=(1, 1))
         self.conv_6_sep = Conv_block(128, 512, kernel=(1, 1), stride=(1, 1), padding=(0, 0))
         if output_name == "GNAP":
             self.output_layer = GNAP(512)

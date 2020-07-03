@@ -763,7 +763,7 @@ class ChannelGate(nn.Module):
 class SpatialGate(nn.Module):
     def __init__(self):
         super(SpatialGate, self).__init__()
-        self.conv ConvBlock(in_channels=2, out_channels=1, kernel_size=7, 
+        self.conv = ConvBlock(in_channels=2, out_channels=1, kernel_size=7, 
                             stride=1, padding=3, bias=False, use_bn=True, activation=None)
         self.sigmoid = nn.Sigmoid()
 
