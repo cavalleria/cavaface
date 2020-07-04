@@ -28,6 +28,7 @@ This repo provides a high-performance distribute parallel training framework for
     * [x] AttentionNet-IRSE
     * [x] EfficientPolyFace
     * [x] ResNeSt
+    * [x] ReXNet
   * **Attention Module**
     * [x] SE
     * [x] CBAM
@@ -106,7 +107,10 @@ nohup bash run.sh > logs/log &
 ## Benchmark
 | Backbone | Head | Loss | Flops | Megaface(Id/ver@1e-6) | IJBC(tar@far=1e-4) |
 | :----: | :----: | :----: | :----: | :----: | :----: |
-| MobileFaceNet | Arcface | Softmax | 440M | 92.8694/93.6329 | 92.80 |
+| MobileFaceNet | Arcface | Softmax | 450M | 92.8694/93.6329 | 92.80 |
+| MobileFaceNet_ECA | Arcface | Softmax | 450M | 93.3329/94.4153 | 93.36 |
+| MobileFaceNet_SE | Arcface | Softmax | 450M | 94.0951/94.4687 | 93.57 |
+| MobileFaceNet_CBAM | Arcface | Softmax | 450M | 93.3068/94.3346 |  |
 | GhostNet | Arcface | Softmax | 270M | 93.3914/94.3359 | 93.50 |
 | [GhostNet_x1.3](https://drive.google.com/file/d/1KVgXIJo2Ym0Ffp3yK9FrIaiqjdAr2KFX/view?usp=sharing) | Arcface | Softmax | 440M | 95.3005/95.7757 | 94.27 |
 | MobileNetV3 | Arcface | Softmax | 430M | 93.9805/95.7314 | 93.57 |

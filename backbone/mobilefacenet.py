@@ -44,7 +44,7 @@ class Depth_Wise(Module):
         self.project = Linear_block(groups, out_c, kernel=(1, 1), padding=(0, 0), stride=(1, 1))
         self.attention = attention
         if self.attention == 'eca':
-            self.attention_layer = ECA_Layer(out_c, kernel[0])
+            self.attention_layer = ECA_Layer(out_c)
         elif self.attention == 'se':
             self.attention_layer = SEBlock(out_c)
         elif self.attention == 'cbam':
@@ -114,7 +114,7 @@ class GDC(Module):
         return x
 
 class MobileFaceNet(Module):
-    def __init__(self, input_size, embedding_size = 512, output_name = "GDC", attention='se'):
+    def __init__(self, input_size, embedding_size = 512, output_name = "GDC", attention='eca'):
         super(MobileFaceNet, self).__init__()
         assert output_name in ["GNAP", 'GDC']
         assert input_size[0] in [112]
