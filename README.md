@@ -108,7 +108,7 @@ nohup bash run.sh > logs/log &
 | Backbone | Head | Loss | Flops | Megaface(Id/ver@1e-6) | IJBC(tar@far=1e-4) |
 | :----: | :----: | :----: | :----: | :----: | :----: |
 | MobileFaceNet | Arcface | Softmax | 450M | 92.8694/93.6329 | 92.80 |
-| MobileFaceNet_ECA | Arcface | Softmax | 450M | 93.3329/94.4153 | 93.36 |
+| MobileFaceNet_ECA | Arcface | Softmax | 450M | 93.7624/95.2328 | 93.40 |
 | MobileFaceNet_SE | Arcface | Softmax | 450M | 94.0951/94.4687 | 93.57 |
 | MobileFaceNet_CBAM | Arcface | Softmax | 450M | 93.3068/94.3346 | 93.53 |
 | GhostNet | Arcface | Softmax | 270M | 93.3914/94.3359 | 93.50 |
