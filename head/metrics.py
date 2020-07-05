@@ -525,7 +525,7 @@ class QAMFace(nn.Module):
     def __init__(self, in_features, out_features, s=6., m=0.5):
         super(QAMFace, self).__init__()
         self.classnum = out_features
-        self.kernel = Parameter(torch.Tensor(in_features, classnum))
+        self.kernel = Parameter(torch.Tensor(in_features, out_features))
         # initial kernel
         self.kernel.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
         self.m = m
