@@ -26,7 +26,6 @@ This repo provides a high-performance distribute parallel training framework for
     * [x] ProxylessNas
     * [x] GhostNet
     * [x] AttentionNet-IRSE
-    * [x] EfficientPolyFace
     * [x] ResNeSt
     * [x] ReXNet
   * **Attention Module**
