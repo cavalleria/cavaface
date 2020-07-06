@@ -342,17 +342,19 @@ def main_worker(gpu, ngpus_per_node, cfg):
                 print("=" * 60)
                 print("Save Checkpoint...")
                 if cfg['RANK'] % ngpus_per_node == 0:
-                    #torch.save(backbone.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, get_time())))
-                    #save_dict = {'EPOCH': epoch+1,
-                    #            'HEAD': head.module.state_dict(),
-                    #            'OPTIMIZER': optimizer.state_dict()}
-                    #torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
+                    '''
+                    torch.save(backbone.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, get_time())))
+                    save_dict = {'EPOCH': epoch+1,
+                                'HEAD': head.module.state_dict(),
+                                'OPTIMIZER': optimizer.state_dict()}
+                    torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
+                    '''
                     ori_backbone.load_state_dict(backbone.module.state_dict())
                     ori_backbone.eval()
                     x = torch.randn(1,3,112,112).cuda()
                     traced_cell = torch.jit.trace(ori_backbone, (x))
-                    #torch.save(ori_backbone, os.path.join(MODEL_ROOT, "model.pth"))
                     torch.jit.save(traced_cell, os.path.join(MODEL_ROOT, "Epoch_{}_Time_{}_checkpoint.pth".format(epoch + 1, get_time())))
+                    
             sys.stdout.flush()
             batch += 1 # batch index
         epoch_loss = losses.avg

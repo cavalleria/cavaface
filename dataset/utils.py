@@ -125,4 +125,4 @@ def cutmix_data(input, target, gpu, cutmix_prob=0.5, alpha=1.0):
     input[:, :, bbx1:bbx2, bby1:bby2] = input[rand_index, :, bbx1:bbx2, bby1:bby2]
     # adjust lambda to exactly match pixel ratio
     lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (input.size()[-1] * input.size()[-2]))
-    return mixed_x, y_a, y_b, lam
+    return input, target_a, target_b, lam
