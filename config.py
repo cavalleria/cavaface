@@ -28,7 +28,7 @@ configurations = {
         EVAL_FREQ = 2000, #for ms1m, batch size 1024, EVAL_FREQ=2000
         DROP_LAST = True, # whether drop the last batch to ensure consistent batch_norm statistics
         
-        OPTIMIZER = 'sgd' # sgd, adam, lookahead, radam, ranger
+        OPTIMIZER = 'sgd', # sgd, adam, lookahead, radam, ranger
         LR = 0.1, # initial LR
         LR_SCHEDULER = 'cosine', # step/multi_step/cosine
         WARMUP_EPOCH = 0, 
