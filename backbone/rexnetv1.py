@@ -27,15 +27,15 @@ def _add_conv(out, in_channels, channels, kernel=1, stride=1, pad=0,
     out.append(nn.Conv2d(in_channels, channels, kernel, stride, pad, groups=num_group, bias=False))
     out.append(nn.BatchNorm2d(channels))
     if active:
-        #out.append(nn.ReLU6(inplace=True) if relu6 else nn.ReLU(inplace=True))
-        out.append(nn.PReLU(channels))
+        out.append(nn.ReLU6(inplace=True) if relu6 else nn.ReLU(inplace=True))
+        #out.append(nn.PReLU(channels))
 
 
 def _add_conv_swish(out, in_channels, channels, kernel=1, stride=1, pad=0, num_group=1):
     out.append(nn.Conv2d(in_channels, channels, kernel, stride, pad, groups=num_group, bias=False))
     out.append(nn.BatchNorm2d(channels))
-    #out.append(Swish())
-    out.append(nn.PReLU(channels))
+    out.append(Swish())
+    #out.append(nn.PReLU(channels))
 
 
 class SE(nn.Module):
