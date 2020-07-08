@@ -97,7 +97,7 @@ class ReXNetV1(nn.Module):
         input_ch=16; final_ch=180; use_se=True; se_ratio=12
         layers = [1, 2, 2, 3, 3, 5]
         strides = [1, 2, 2, 2, 1, 2]
-        layers = [ceil(element * depth_mult) for element in layers]
+        layers = [int(ceil(element * depth_mult)) for element in layers]
         strides = sum([[element] + [1] * (layers[idx] - 1) for idx, element in enumerate(strides)], [])
         ts = [1] * layers[0] + [6] * sum(layers[1:])
         self.depth = sum(layers[:]) * 3
