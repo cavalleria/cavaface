@@ -1,85 +1,96 @@
-## cavaface.pytorch: A Pytorch Training Framework for Deep Face Recognition
+# cavaface.pytorch: A Pytorch Training Framework for Deep Face Recognition
+
+[![python-url](https://img.shields.io/badge/Python-3.x-red.svg)](https://www.python.org/)
+[![pytorch-url](https://img.shields.io/badge/Pytorch-1.4-blue.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![HitCount](http://hits.dwyl.com/cavalleria/cavafacepytorch.svg)](http://hits.dwyl.com/cavalleria/cavafacepytorch)
 
 By Yaobin Li and Liying Chi
 
 ## Introduction
+
 This repo provides a high-performance distribute parallel training framework for face recognition with pytorch, including various backbones (e.g., ResNet, IR, IR-SE, ResNeXt, AttentionNet-IR-SE, ResNeSt, HRNet, etc.), various losses (e.g., Softmax, Focal, SphereFace, CosFace, AmSoftmax, ArcFace, ArcNegFace, CurricularFace, Li-Arcface, QAMFace, etc.), various data augmentation(e.g., RandomErasing, Mixup, RandAugment, Cutout, CutMix, etc.) and bags of tricks for improving performance (e.g., FP16 training(apex), Label smooth, LR warmup, etc)
+
 ## Main requirements
 
-  * **torch == 1.4.0**
-  * **torchvision == 0.5.0**
-  * **tensorboardX == 1.7**
-  * **bcolz == 1.2.1**
-  * **Python 3**
-  * **Apex == 0.1**
+* **torch == 1.4.0**
+* **torchvision == 0.5.0**
+* **tensorboardX == 1.7**
+* **bcolz == 1.2.1**
+* **Python 3**
+* **Apex == 0.1**
 
 ## Features
-  * **Backone**
-    * [x] ResNet(IR-SE)
-    * [x] ResNeXt
-    * [x] DenseNet
-    * [x] MobileFaceNet
-    * [x] MobileNetV3
-    * [x] EfficientNet
-    * [x] ProxylessNas
-    * [x] GhostNet
-    * [x] AttentionNet-IRSE
-    * [x] ResNeSt
-    * [x] ReXNet
-    * [x] MobileNetV2
-    * [x] MobileNeXt
-  * **Attention Module**
-    * [x] SE
-    * [x] CBAM
-    * [x] ECA
-  * **Loss**
-    * [x] Softmax
-    * [x] SphereFace
-    * [x] Am_Softmax
-    * [x] CosFace
-    * [x] ArcFace
-    * [x] Combined Loss
-    * [x] AdaCos
-    * [x] SV-X-Softmax
-    * [x] CurricularFace
-    * [x] ArcNegFace
-    * [x] Li-Arcface
-    * [x] QAMFace
-  * **Parallel Training**
-    * [x] Data Parallel
-    * [x] Model Parallel
-  * **Automatic Mixed Precision**
-    * [x] Apex
-  * **Optimizer**
-    * [x] LR_Scheduler([faireq](https://github.com/pytorch/fairseq/tree/master/fairseq/optim/lr_scheduler),[rwightman](https://github.com/rwightman/pytorch-image-models/tree/master/timm/scheduler))
-    * [x] Optim(SGD,Adam,RAdam,[LookAhead](https://github.com/lonePatient/lookahead_pytorch),Ranger,AdamP,SGDP)
-  * **[Data Augmentation](https://github.com/albumentations-team/albumentations)**
-    * [x] [RandomErasing](https://github.com/zhunzhong07/Random-Erasing/blob/master/transforms.py)(官方版torchvision.transforms.RandomErasing)
-    * [x] Mixup
-    * [x] RandAugment
-    * [x] Cutout
-    * [x] CutMix
-  * **Distillation**
-    * [ ] KnowledgeDistillation
-    * [ ] Multi Feature KD
-  * **Bag of Tricks**
-    * [x] Label smooth
-    * [x] LR warmup
-    * [ ] Zero gamma
+
+* **Backone**
+  * [x] ResNet(IR-SE)
+  * [x] ResNeXt
+  * [x] DenseNet
+  * [x] MobileFaceNet
+  * [x] MobileNetV3
+  * [x] EfficientNet
+  * [x] ProxylessNas
+  * [x] GhostNet
+  * [x] AttentionNet-IRSE
+  * [x] ResNeSt
+  * [x] ReXNet
+  * [x] MobileNetV2
+  * [x] MobileNeXt
+* **Attention Module**
+  * [x] SE
+  * [x] CBAM
+  * [x] ECA
+* **Loss**
+  * [x] Softmax
+  * [x] SphereFace
+  * [x] Am_Softmax
+  * [x] CosFace
+  * [x] ArcFace
+  * [x] Combined Loss
+  * [x] AdaCos
+  * [x] SV-X-Softmax
+  * [x] CurricularFace
+  * [x] ArcNegFace
+  * [x] Li-Arcface
+  * [x] QAMFace
+* **Parallel Training**
+  * [x] Data Parallel
+  * [x] Model Parallel
+* **Automatic Mixed Precision**
+  * [x] Apex
+* **Optimizer**
+  * [x] LR_Scheduler([faireq](https://github.com/pytorch/fairseq/tree/master/fairseq/optim/lr_scheduler),[rwightman](https://github.com/rwightman/pytorch-image-models/tree/master/timm/scheduler))
+  * [x] Optim(SGD,Adam,RAdam,LookAhead,Ranger,AdamP,SGDP)
+* **[Data Augmentation](https://github.com/albumentations-team/albumentations)**
+  * [x] [RandomErasing](https://github.com/zhunzhong07/Random-Erasing/blob/master/transforms.py)(官方版torchvision.transforms.RandomErasing)
+  * [x] Mixup
+  * [x] RandAugment
+  * [x] Cutout
+  * [x] CutMix
+* **Distillation**
+  * [ ] KnowledgeDistillation
+  * [ ] Multi Feature KD
+* **Bag of Tricks**
+  * [x] Label smooth
+  * [x] LR warmup
+  * [ ] Zero gamma
 
 ## Quick start
+
 ### Installation
+
 1. Install pytorch==1.4.0 and torchvision==0.5.0 following [official instruction](https://pytorch.org/).
 2. Clone this repo.
 3. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-4. (Option) If you are used to using docker, the dockerhub is https://hub.docker.com/r/cavall/pytorch_env ![Docker Pulls](https://img.shields.io/docker/pulls/cavall/pytorch_env?logo=docker).
+
+    ```python
+    pip install -r requirements.txt
+    ```
+
+4. (Option) If you are used to using docker, the dockerhub is [pytorch_env](https://hub.docker.com/r/cavall/pytorch_env) ![Docker Pulls](https://img.shields.io/docker/pulls/cavall/pytorch_env?logo=docker).
 
 ### Data preparation
+
 **For training data**, please download the ms1m-retinaface in https://github.com/deepinsight/insightface/tree/master/iccv19-challenge.
 
 **For test data**, please download the megaface and ijbc in https://github.com/deepinsight/insightface/tree/master/Evaluation.
@@ -87,7 +98,8 @@ This repo provides a high-performance distribute parallel training framework for
 ### Training and Testing
 
 #### Training on ms1m-retinaface
-```
+
+```bash
 You can change the experimental setting by simply modifying the parameter in the config.py
 bash train.sh
 # To evaluate the model on validation set:
@@ -95,18 +107,24 @@ bash train.sh
 (2)set the checkpoint dir in config.py
 bash evaluate.sh
 ```
+
 #### Testing on Megaface and IJBC
+
 1. Put the test data and image list into proper directory.
 2. Start evaluation service.
-```
-nohup python evaluate_service.py > logs/log.service &
-```
+
+    ```python
+    nohup python evaluate_service.py > logs/log.service &
+    ```
+
 3. Start extracting features and evaluating.
-```
-nohup bash run.sh > logs/log &
-```
+
+    ```bash
+    nohup bash run.sh > logs/log &
+    ```
 
 ## Benchmark
+
 | Backbone | Head | Loss | Flops/Params | Megaface(Id/ver@1e-6) | IJBC(tar@far=1e-4) |
 | :----: | :----: | :----: | :----: | :----: | :----: |
 | MobileFaceNet | Arcface | Softmax | 450M/1.20M | 92.8694/93.6329 | 92.80 |
@@ -131,11 +149,6 @@ nohup bash run.sh > logs/log &
 | ResNeSt-101 | Arcface | Softmax| 18.45G/97.61M | 98.8746/98.5615 | 96.63 |
 | DenseNet-201 | Arcface | Softmax| 8.52G/66.37M | 98.3649/98.4294 | 96.03 |
 
-
-
-
-
-
 ## Acknowledgement
 
 * This repo is modified and adapted on these great repositories [face.evoLVe.PyTorch](https://github.com/ZhaoJ9014/face.evoLVe.PyTorch), [CurricularFace](https://github.com/HuangYG123/CurricularFace), [insightface](https://github.com/deepinsight/insightface) and [imgclsmob](https://github.com/osmr/imgclsmob/)
@@ -143,8 +156,6 @@ nohup bash run.sh > logs/log &
 
 ## Contact
 
-```
+```markdown
 cavallyb@gmail.com
 ```
-
-
