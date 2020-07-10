@@ -72,11 +72,12 @@ This repo provides a high-performance distribute parallel training framework for
 ## Quick start
 ### Installation
 1. Install pytorch==1.4.0 and torchvision==0.5.0 following [official instruction](https://pytorch.org/).
-2. Clone this repo, and we'll call the directory that you cloned as ${WORK_ROOT}.
+2. Clone this repo.
 3. Install dependencies:
    ```
    pip install -r requirements.txt
    ```
+4. (Option) If you are used to using docker, the dockerhub is https://hub.docker.com/r/cavall/pytorch_env ![Docker Pulls](https://img.shields.io/docker/pulls/cavall/pytorch_env?logo=docker).
 
 ### Data preparation
 **For training data**, please download the ms1m-retinaface in https://github.com/deepinsight/insightface/tree/master/iccv19-challenge.
