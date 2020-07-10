@@ -40,6 +40,7 @@ This repo provides a high-performance distribute parallel training framework for
   * [x] SE
   * [x] CBAM
   * [x] ECA
+  * [x] GCT
 * **Loss**
   * [x] Softmax
   * [x] SphereFace
@@ -133,6 +134,7 @@ bash evaluate.sh
 | MobileFaceNet_ECA | Arcface | Softmax | 450M/1.20M | 93.7624/95.2328 | 93.40 |
 | MobileFaceNet_SE | Arcface | Softmax | 450M/1.23M | 94.0951/94.4687 | 93.57 |
 | MobileFaceNet_CBAM | Arcface | Softmax | 450M/1.23M | 93.3068/94.3346 | 93.53 |
+| MobileFaceNet_GCT | Arcface | Softmax | 450M/1.21M | 93.133/94.1836 | 93.09 |
 | GhostNet | Arcface | Softmax | 270M/2.49M | 93.3914/94.3359 | 93.50 |
 | [GhostNet_x1.3](https://drive.google.com/file/d/1KVgXIJo2Ym0Ffp3yK9FrIaiqjdAr2KFX/view?usp=sharing) | Arcface | Softmax | 440M/4.06M | 95.3005/95.7757 | 94.27 |
 | MobileNetV3 | Arcface | Softmax | 430M/3.2M | 93.9805/95.7314 | 93.57 |

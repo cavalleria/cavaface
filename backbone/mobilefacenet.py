@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from collections import namedtuple
 import math
-from .common import ECA_Layer, SEBlock, CbamBlock, Identity
+from .common import ECA_Layer, SEBlock, CbamBlock, Identity, GCT
 
 ##################################  Original Arcface Model #############################################################
 
@@ -49,6 +49,8 @@ class Depth_Wise(Module):
             self.attention_layer = SEBlock(out_c)
         elif self.attention == 'cbam':
             self.attention_layer = CbamBlock(out_c)
+        elif self.attention == 'gct':
+            self.attention_layer = GCT(out_c)
 
         self.residual = residual
 
@@ -114,7 +116,7 @@ class GDC(Module):
         return x
 
 class MobileFaceNet(Module):
-    def __init__(self, input_size, embedding_size = 512, output_name = "GDC", attention='eca'):
+    def __init__(self, input_size, embedding_size = 512, output_name = "GDC", attention='none'):
         super(MobileFaceNet, self).__init__()
         assert output_name in ["GNAP", 'GDC']
         assert input_size[0] in [112]
