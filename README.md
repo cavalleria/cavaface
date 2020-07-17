@@ -76,80 +76,21 @@ This repo provides a high-performance distribute parallel training framework for
   * [x] LR warmup
   * [ ] Zero gamma
 
+## Installation
+
+See [INSTALL.md](https://github.com/cavalleria/cavaface.pytorch/blob/master/INSTALL.md).
+
 ## Quick start
 
-### Installation
+See [GETTING_STARTED.md](https://github.com/cavalleria/cavaface.pytorch/blob/master/GETTING_STARTED.md).
 
-1. Install pytorch==1.4.0 and torchvision==0.5.0 following [official instruction](https://pytorch.org/).
-2. Clone this repo.
-3. Install dependencies:
+## Model Zoo and Baselines
 
-    ```python
-    pip install -r requirements.txt
-    ```
+See [MODEL_ZOO.md](https://github.com/cavalleria/cavaface.pytorch/blob/master/MODEL_ZOO.md).
 
-4. (Option) If you are used to using docker, the dockerhub is [pytorch_env](https://hub.docker.com/r/cavall/pytorch_env) ![Docker Pulls](https://img.shields.io/docker/pulls/cavall/pytorch_env?logo=docker).
+## License
 
-### Data preparation
-
-**For training data**, please download the ms1m-retinaface in https://github.com/deepinsight/insightface/tree/master/iccv19-challenge.
-
-**For test data**, please download the megaface and ijbc in https://github.com/deepinsight/insightface/tree/master/Evaluation.
-
-### Training and Testing
-
-#### Training on ms1m-retinaface
-
-```bash
-You can change the experimental setting by simply modifying the parameter in the config.py
-bash train.sh
-# To evaluate the model on validation set:
-(1)please first download the val data in https://github.com/ZhaoJ9014/face.evoLVe.PyTorch.
-(2)set the checkpoint dir in config.py
-bash evaluate.sh
-```
-
-#### Testing on Megaface and IJBC
-
-1. Put the test data and image list into proper directory.
-2. Start evaluation service.
-
-    ```python
-    nohup python evaluate_service.py > logs/log.service &
-    ```
-
-3. Start extracting features and evaluating.
-
-    ```bash
-    nohup bash run.sh > logs/log &
-    ```
-
-## Benchmark
-
-| Backbone | Head | Loss | Flops/Params | Megaface(Id/ver@1e-6) | IJBC(tar@far=1e-4) |
-| :----: | :----: | :----: | :----: | :----: | :----: |
-| MobileFaceNet | Arcface | Softmax | 450M/1.20M | 92.8694/93.6329 | 92.80 |
-| MobileNetV2 | Arcface | Softmax | 430M/2.26M | 92.8128/93.7644 | 93.30 |
-| MobileNeXt | Arcface | Softmax | 420M/1.86M | 93.3368/94.6913 | 93.38 |
-| MobileFaceNet_ECA | Arcface | Softmax | 450M/1.20M | 93.7624/95.2328 | 93.40 |
-| MobileFaceNet_SE | Arcface | Softmax | 450M/1.23M | 94.0951/94.4687 | 93.57 |
-| MobileFaceNet_CBAM | Arcface | Softmax | 450M/1.23M | 93.3068/94.3346 | 93.53 |
-| MobileFaceNet_GCT | Arcface | Softmax | 450M/1.21M | 93.133/94.1836 | 93.09 |
-| GhostNet | Arcface | Softmax | 270M/2.49M | 93.3914/94.3359 | 93.50 |
-| [GhostNet_x1.3](https://drive.google.com/file/d/1KVgXIJo2Ym0Ffp3yK9FrIaiqjdAr2KFX/view?usp=sharing) | Arcface | Softmax | 440M/4.06M | 95.3005/95.7757 | 94.27 |
-| MobileNetV3 | Arcface | Softmax | 430M/3.2M | 93.9805/95.7314 | 93.57 |
-| ProxylessNAS_mobile | Arcface | Softmax | 630M/2.84M | 93.2886/95.2094 | 93.74 |
-| ProxylessNAS_cpu | Arcface | Softmax | 860M/2.89M | 95.4242/95.79 | 94.22 |
-| EfficientNet_b0 | Arcface | Softmax | 770M/4.07M | 96.3589/97.1946 | 94.84 |
-| EfficientNet_b1 | Arcface | Softmax | 1.14G/6.58M | 97.095/97.4003 | 95.38 |
-| AttentionNet-IRSE-92 | MV-AM | Softmax | 17.63G/55.42M | 99.1356/99.3999 | 96.56 |
-| IR-SE-100 | Arcface | Softmax | 24.18G/65.5M | 99.0881/99.4259 | 96.69 |
-| IR-SE-100 | ArcNegface | Softmax | 24.18G/65.5M  | 99.1304/98.7099 | 96.81 |
-| IR-SE-100 | Curricularface | Softmax| 24.18G/65.5M  | 99.0497/98.6162 | 97.00 |
-| [IR-SE-100](https://drive.google.com/file/d/1HdXgFmyMX4MGETTx6ACmx8AB-v79hrhp/view?usp=sharing) | Combined | Softmax| 24.18G/65.5M | 99.0718/99.4493 | 96.83 |
-| IR-SE-100 | CircleLoss | Softplus| 24.18G/65.5M  | 98.5732/98.4834 | 96.52 |
-| ResNeSt-101 | Arcface | Softmax| 18.45G/97.61M | 98.8746/98.5615 | 96.63 |
-| DenseNet-201 | Arcface | Softmax| 8.52G/66.37M | 98.3649/98.4294 | 96.03 |
+cavaface.pytorch is released under the [MIT license](https://github.com/cavalleria/cavaface.pytorch/blob/master/LICENSE).
 
 ## Acknowledgement
 
