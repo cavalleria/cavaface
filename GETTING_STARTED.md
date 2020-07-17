@@ -1,4 +1,4 @@
-# Getting Started with Fastreid
+# Getting Start
 
 ### Data preparation
 
