@@ -102,16 +102,22 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print("Overall Configurations:")
     print(cfg)
     print("=" * 60)
-    transform_list = [transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean = RGB_MEAN,std = RGB_STD),]
-    if cfg['RANDOM_ERASING']:
-        transform_list.append(RandomErasing())
+    transform_list = [transforms.RandomHorizontalFlip(),]
+    if cfg['COLORJITTER']:
+        transform_list.append(transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4))
     if cfg['CUTOUT']:
         transform_list.append(Cutout())
+    transform_list.append(transforms.ToTensor())
+    transform_list.append(transforms.Normalize(mean = RGB_MEAN,std = RGB_STD))
+    if cfg['RANDOM_ERASING']:
+        transform_list.append(transforms.RandomErasing())
     train_transform = transforms.Compose(transform_list)
     if cfg['RANDAUGMENT']:
         train_transform.transforms.insert(0, RandAugment(n=cfg['RANDAUGMENT_N'], m=cfg['RANDAUGMENT_M']))
+    print("=" * 60)
+    print(train_transform)
+    print("Train Transform Generated")
+    print("=" * 60)
     dataset_train = FaceDataset(DATA_ROOT, RECORD_DIR, train_transform)
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
     train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=per_batch_size,

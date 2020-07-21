@@ -68,6 +68,7 @@ This repo provides a high-performance distribute parallel training framework for
   * [x] RandAugment
   * [x] Cutout
   * [x] CutMix
+  * [x] Colorjitter 
 * **Distillation**
   * [ ] KnowledgeDistillation
   * [ ] Multi Feature KD

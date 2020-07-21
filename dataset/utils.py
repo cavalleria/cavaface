@@ -60,10 +60,7 @@ def mixup_data(x, y, gpu, mixup_prob=0.5, alpha=1.0):
         lam = 1
 
     batch_size = x.size()[0]
-    if use_cuda:
-        index = torch.randperm(batch_size).cuda()
-    else:
-        index = torch.randperm(batch_size)
+    index = torch.randperm(batch_size).cuda(gpu)
 
     mixed_x = lam * x + (1 - lam) * x[index, :]
     y_a, y_b = y, y[index]
@@ -72,7 +69,7 @@ def mixup_data(x, y, gpu, mixup_prob=0.5, alpha=1.0):
 
 def mixup_criterion(criterion, pred, y_a, y_b, lam):
     return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
-
+'''
 class Cutout(object):
     def __init__(self, n_holes=1, length=112):
         self.n_holes = n_holes
@@ -93,6 +90,61 @@ class Cutout(object):
             x2 = np.clip(x + self.length // 2, 0, w)
 
             img[y1:y2, x1:x2] = 0
+        return img
+'''
+class Cutout(object):
+    def __init__(self, p=0.5, scale=(0.02, 0.4), ratio=(0.4, 1 / 0.4),
+                 value=(0, 255), pixel_level=False, inplace=False):
+
+        if (scale[0] > scale[1]) or (ratio[0] > ratio[1]):
+            warnings.warn("range should be of kind (min, max)")
+        if scale[0] < 0 or scale[1] > 1:
+            raise ValueError("range of scale should be between 0 and 1")
+        if p < 0 or p > 1:
+            raise ValueError(
+                "range of random erasing probability should be between 0 and 1")
+        self.p = p
+        self.scale = scale
+        self.ratio = ratio
+        self.value = value
+        self.pixel_level = pixel_level
+        self.inplace = inplace
+
+    @staticmethod
+    def get_params(img, scale, ratio):
+
+        if type(img) == np.ndarray:
+            img_h, img_w, img_c = img.shape
+        else: 
+            img_h, img_w = img.size
+            img_c = len(img.getbands())
+
+        s = random.uniform(*scale)
+        # if you img_h != img_w you may need this.
+        # r_1 = max(r_1, (img_h*s)/img_w)
+        # r_2 = min(r_2, img_h / (img_w*s))
+        r = random.uniform(*ratio)
+        s = s * img_h * img_w
+        w = int(math.sqrt(s / r))
+        h = int(math.sqrt(s * r))
+        left = random.randint(0, img_w - w)
+        top = random.randint(0, img_h - h)
+
+        return left, top, h, w, img_c
+
+    def __call__(self, img):
+        if random.random() < self.p:
+            left, top, h, w, ch = self.get_params(img, self.scale, self.ratio)
+
+            if self.pixel_level:
+                c = np.random.randint(*self.value, size=(h, w, ch), dtype='uint8')
+            else:
+                c = random.randint(*self.value)
+ 
+            if self.pixel_level:
+                c = PIL.Image.fromarray(c)
+            img.paste(c, (left, top, left + w, top + h))
+            return img
         return img
 
 def rand_bbox(size, lam):

@@ -29,3 +29,12 @@
 
 ## Data augmentation
 
+| Backbone | Head | DataAugment | Megaface(Id/ver@1e-6) | IJBC(tar@far=1e-4) |
+| :----: | :----: | :----: | :----: | :----: |
+| MobileFaceNet | Arcface | Basline | 92.8694/93.6329 | 92.80 |
+| MobileFaceNet | Arcface | Randaug | 88.9829/91.045 | 80.86 |
+| MobileFaceNet | Arcface | Mixup | 90.8965/92.6123 | 91.18 |
+| MobileFaceNet | Arcface | RandErasing | 91.2396/93.0953 | 92.06 |
+| MobileFaceNet | Arcface | Cutout | 90.7761/92.1215 | 81.02 |
+| MobileFaceNet | Arcface | Cutmix | 88.9497/90.3823 | 89.64 |
+| MobileFaceNet | Arcface | ColorJitter | 91.9237/92.8649 | 92.03 |
