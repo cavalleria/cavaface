@@ -79,10 +79,7 @@ class ArcFace(nn.Module):
     def forward(self, embbedings, label):
         embbedings = l2_norm(embbedings, axis = 1)
         kernel_norm = l2_norm(self.kernel, axis = 0)
-        cos_theta = torch.mm(embbedings, kernel_norm)
-        cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability
-        with torch.no_grad():
-            origin_cos = cos_theta.clone()
+        cos_theta = torch.mm(embbedings, kernel_norm).clamp_(-1, 1)  # for numerical stability
         target_logit = cos_theta[torch.arange(0, embbedings.size(0)), label].view(-1, 1)
 
         sin_theta = torch.sqrt(1.0 - torch.pow(target_logit, 2))
@@ -341,10 +338,7 @@ class CurricularFace(nn.Module):
     def forward(self, embbedings, label):
         embbedings = l2_norm(embbedings, axis = 1)
         kernel_norm = l2_norm(self.kernel, axis = 0)
-        cos_theta = torch.mm(embbedings, kernel_norm)
-        cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability
-        with torch.no_grad():
-            origin_cos = cos_theta.clone()
+        cos_theta = torch.mm(embbedings, kernel_norm).clamp_(-1, 1)  # for numerical stability
         target_logit = cos_theta[torch.arange(0, embbedings.size(0)), label].view(-1, 1)
 
         sin_theta = torch.sqrt(1.0 - torch.pow(target_logit, 2))
