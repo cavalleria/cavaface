@@ -40,9 +40,7 @@ from dataset.utils import *
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
-import apex
-from apex.parallel import DistributedDataParallel as DDP
-from apex import amp
+from torch.cuda.amp import GradScaler, autocast
 from util.flops_counter import *
 from optimizer.lr_scheduler import *
 from optimizer.optimizer import *
@@ -245,15 +243,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
             print("No Checkpoint Found at '{}' and '{}'. Please Have a Check or Continue to Train from Scratch".format(BACKBONE_RESUME_ROOT, HEAD_RESUME_ROOT))
         print("=" * 60)
     ori_backbone = copy.deepcopy(backbone)
-    if SYNC_BN:
-        backbone = apex.parallel.convert_syncbn_model(backbone)
-    if USE_APEX:
-        [backbone, head], optimizer = amp.initialize([backbone, head], optimizer, opt_level='O2')
-        backbone = DDP(backbone)
-        head = DDP(head)
-    else:
-        backbone = torch.nn.parallel.DistributedDataParallel(backbone, device_ids=[cfg['GPU']])
-        head = torch.nn.parallel.DistributedDataParallel(head, device_ids=[cfg['GPU']])
+    backbone = torch.nn.parallel.DistributedDataParallel(backbone, device_ids=[cfg['GPU']])
+    head = torch.nn.parallel.DistributedDataParallel(head, device_ids=[cfg['GPU']])
 
      # checkpoint and tensorboard dir
     MODEL_ROOT = cfg['MODEL_ROOT'] # the root to buffer your checkpoints
@@ -261,6 +252,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
 
     os.makedirs(MODEL_ROOT, exist_ok=True)
     os.makedirs(LOG_ROOT, exist_ok=True)
+    
+    scaler = torch.cuda.amp.GradScaler()
 
     writer = SummaryWriter(LOG_ROOT) # writer for buffering intermedium results
     # train
@@ -290,7 +283,9 @@ def main_worker(gpu, ngpus_per_node, cfg):
             elif cfg['CUTMIX']:
                     inputs, labels_a, labels_b, lam = cutmix_data(inputs, labels, cfg['GPU'], cfg['CUTMIX_PROB'], cfg['MIXUP_ALPHA'])
                     inputs, labels_a, labels_b = map(Variable, (inputs, labels_a, labels_b))
-            features = backbone(inputs)
+            with autocast():
+                features = backbone(inputs)
+            # Autocast on head requires some modifications to head_metrics.py
             outputs = head(features, labels)
 
             if cfg['MIXUP'] or cfg['CUTMIX']:
@@ -305,11 +300,12 @@ def main_worker(gpu, ngpus_per_node, cfg):
             # compute gradient and do SGD step
             optimizer.zero_grad()
             if USE_APEX:
-                with amp.scale_loss(lossx, optimizer) as scaled_loss:
-                    scaled_loss.backward()
+                scaler.scale(lossx).backward()
+                scaler.step(optimizer)
+                scaler.update()
             else:
                 lossx.backward()
-            optimizer.step()
+                optimizer.step()
 
             # measure accuracy and record loss
             prec1, prec5 = accuracy(outputs.data, labels, topk = (1, 5)) if HEAD_NAME != 'CircleLoss' else accuracy(features.data, labels, topk = (1, 5))
