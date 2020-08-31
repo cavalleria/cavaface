@@ -54,6 +54,7 @@ This repo provides a high-performance distribute parallel training framework for
   * [x] ArcNegFace
   * [x] Li-Arcface
   * [x] QAMFace
+  * [x] Circle Loss 
 * **Parallel Training**
   * [x] Data Parallel
   * [x] Model Parallel
