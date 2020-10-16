@@ -1,12 +1,13 @@
 import numpy as np
 import torch
+import mxnet as mx
 
 from PIL import Image
 import cv2
 from torch.utils.data import Dataset
 import os
 from collections import defaultdict
-
+import numbers
 class ImageDataset(Dataset):
     def __init__(self, root_dir, transform):
         super(ImageDataset, self).__init__()
@@ -113,3 +114,41 @@ class FaceDataset(Dataset):
         for label in self.classes:
             sample_num.append(len(self.label_to_indexes[label]))
         return sample_num
+
+class MXFaceDataset(Dataset):
+    def __init__(self, root_dir, transform, Train=True):
+        super(MXFaceDataset, self).__init__()
+        self.transform = transform
+        self.train = Train
+        self.root_dir = root_dir
+        path_imgrec = os.path.join(root_dir, 'train.rec')
+        path_imgidx = os.path.join(root_dir, 'train.idx')
+        self.imgrec = mx.recordio.MXIndexedRecordIO(path_imgidx, path_imgrec, 'r')
+        s = self.imgrec.read_idx(0)
+        header, _ = mx.recordio.unpack(s)
+        if header.flag>0:
+            print('header0 label', header.label)
+            self.header0 = (int(header.label[0]), int(header.label[1]))
+            self.imgidx = list(range(1, int(header.label[0])))
+        else:
+            self.imgidx = list(self.imgrec.keys)
+        self.classes = self.header0[1]-self.header0[0]
+        print("Number of Samples: {} Number of Classes: {}".format(len(self.imgidx), self.classes))
+    
+    def __getitem__(self, index):
+        idx = self.imgidx[index]
+        s = self.imgrec.read_idx(idx)
+        header, img = mx.recordio.unpack(s)
+        label = header.label
+        if not isinstance(label, numbers.Number):
+            label = label[0]
+        label = torch.tensor(label, dtype=torch.long)
+        sample = mx.image.imdecode(img).asnumpy() #RGB
+        if self.transform is not None:
+            PIL_sample = Image.fromarray(sample)
+            PIL_sample = self.transform(PIL_sample)
+        if self.train:
+            return PIL_sample, label
+    def __len__(self):
+        return len(self.imgidx)
+        

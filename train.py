@@ -34,7 +34,7 @@ from backbone.mobilenetv2 import *
 from head.metrics import *
 from loss.loss import *
 from util.utils import *
-from dataset.datasets import FaceDataset
+from dataset.datasets import FaceDataset, MXFaceDataset
 from dataset.randaugment import RandAugment
 from dataset.utils import *
 from tensorboardX import SummaryWriter
@@ -47,6 +47,7 @@ from util.flops_counter import *
 from optimizer.lr_scheduler import *
 from optimizer.optimizer import *
 #from torchprofile import profile_macs
+from torchsummaryX import summary
 
 def set_seed(seed):
     random.seed(seed)
@@ -118,13 +119,15 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print(train_transform)
     print("Train Transform Generated")
     print("=" * 60)
-    dataset_train = FaceDataset(DATA_ROOT, RECORD_DIR, train_transform)
+    #dataset_train = FaceDataset(DATA_ROOT, RECORD_DIR, train_transform)
+    dataset_train = MXFaceDataset(DATA_ROOT, train_transform)
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
     train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=per_batch_size,
                                                 shuffle = (train_sampler is None), num_workers=workers,
                                                 pin_memory=True, sampler=train_sampler, drop_last=DROP_LAST)
-    SAMPLE_NUMS = dataset_train.get_sample_num_of_each_class()
-    NUM_CLASS = len(train_loader.dataset.classes)
+    #SAMPLE_NUMS = dataset_train.get_sample_num_of_each_class()
+    #NUM_CLASS = len(train_loader.dataset.classes)
+    NUM_CLASS = train_loader.dataset.classes
     print("Number of Training Classes: {}".format(NUM_CLASS))
 
     lfw, cfp_fp, agedb_30, vgg2_fp, lfw_issame, cfp_fp_issame, agedb_30_issame, vgg2_fp_issame = get_val_data(VAL_DATA_ROOT)
@@ -155,11 +158,13 @@ def main_worker(gpu, ngpus_per_node, cfg):
     HEAD_NAME = cfg['HEAD_NAME']
     EMBEDDING_SIZE = cfg['EMBEDDING_SIZE'] # feature dimension
     head = HEAD_DICT[HEAD_NAME](in_features = EMBEDDING_SIZE, out_features = NUM_CLASS)
-    print("Params: ", count_model_params(backbone))
-    print("Flops:", count_model_flops(backbone))
+    #print("Params: ", count_model_params(backbone))
+    #print("Flops:", count_model_flops(backbone))
+    backbone = backbone.eval()
+    summary(backbone, torch.randn(1, 3, 112, 112))
     #backbone = backbone.eval()
     #print("Flops: ", flops_to_string(2*float(profile_macs(backbone.eval(), torch.randn(1, 3, 112, 112)))))
-    #backbone = backbone.train()
+    backbone = backbone.train()
     print("=" * 60)
     print(head)
     print("{} Head Generated".format(HEAD_NAME))
@@ -349,11 +354,12 @@ def main_worker(gpu, ngpus_per_node, cfg):
                 print("Save Checkpoint...")
                 if cfg['RANK'] % ngpus_per_node == 0:
                     '''
-                    torch.save(backbone.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, get_time())))
-                    save_dict = {'EPOCH': epoch+1,
-                                'HEAD': head.module.state_dict(),
-                                'OPTIMIZER': optimizer.state_dict()}
-                    torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
+                    if epoch+1==cfg['NUM_EPOCH']:
+                        torch.save(backbone.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, get_time())))
+                        save_dict = {'EPOCH': epoch+1,
+                                    'HEAD': head.module.state_dict(),
+                                    'OPTIMIZER': optimizer.state_dict()}
+                        torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
                     '''
                     ori_backbone.load_state_dict(backbone.module.state_dict())
                     ori_backbone.eval()
