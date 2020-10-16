@@ -12,37 +12,22 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-
+from tensorboardX import SummaryWriter
+from tqdm import tqdm
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import StepLR, MultiStepLR
-from config import configurations
-from backbone.resnet import *
-from backbone.resnet_irse import *
-from backbone.mobilefacenet import *
-from backbone.resattnet import *
-from backbone.resnest import *
-from backbone.ghostnet import *
-from backbone.mobilenetv3 import *
-from backbone.proxylessnas import *
-from backbone.efficientnet import *
-from backbone.densenet import *
-from backbone.rexnetv1 import *
-from backbone.mobilenext import *
-from backbone.mobilenetv2 import *
-from head.metrics import *
-from loss.loss import *
-from util.utils import *
-from dataset.datasets import FaceDataset, MXFaceDataset
-from dataset.randaugment import RandAugment
-from dataset.utils import *
-from tensorboardX import SummaryWriter
-from tqdm import tqdm
-
 import apex
-from apex.parallel import DistributedDataParallel as DDP
 from apex import amp
+from apex.parallel import DistributedDataParallel as DDP
+
+from config import configurations
+from backbone import *
+from head import *
+from loss.loss import *
+from dataset import *
+from util.utils import *
 from util.flops_counter import *
 from optimizer.lr_scheduler import *
 from optimizer.optimizer import *
