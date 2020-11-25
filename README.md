@@ -22,7 +22,7 @@ This repo provides a high-performance distribute parallel training framework for
 
 ## Features
 
-* **Backone**
+* **Backbone**
   * [x] ResNet(IR-SE)
   * [x] ResNeXt
   * [x] DenseNet
