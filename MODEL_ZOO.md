@@ -38,3 +38,19 @@
 | MobileFaceNet | Arcface | Cutout | 90.7761/92.1215 | 81.02 |
 | MobileFaceNet | Arcface | Cutmix | 88.9497/90.3823 | 89.64 |
 | MobileFaceNet | Arcface | ColorJitter | 91.9237/92.8649 | 92.03 |
+
+## Training Speed Benchmark
+
+Device: 8 * Tesla V100-PCIE-32GB
+| Backbone | Batch Size | FP16 | Samples/s |
+| :----: | :----: | :----: | :----: |
+| IR_SE_100 | 8x128 | False | 1454 |
+| IR_SE_100 | 8x128 | True | 2662 |
+| IR_100 | 8x128 | False | 1618 |
+| IR_100 | 8x128 | True | 3173 |
+| MobileFaceNet | 8x128 | False | 7065 |
+| MobileFaceNet | 8x128 | True | 10240 |
+
+
+
+

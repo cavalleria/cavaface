@@ -1,7 +1,6 @@
 import os
 import sys
 import time
-import random
 import numpy as np
 import copy
 import scipy
@@ -32,23 +31,20 @@ from util.flops_counter import *
 from optimizer.lr_scheduler import *
 from optimizer.optimizer import *
 #from torchprofile import profile_macs
-from torchsummaryX import summary
 
-def set_seed(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
 
 def main():
     cfg = configurations[1]
     ngpus_per_node = len(cfg['GPU'])
     world_size = cfg['WORLD_SIZE']
     cfg['WORLD_SIZE'] = ngpus_per_node * world_size
-    mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, cfg))
+    
+    # load val data
+    val_dataset = get_val_data(cfg['VAL_DATA_ROOT'], cfg['VAL_SET'])
+    mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, cfg, val_dataset))
 
-def main_worker(gpu, ngpus_per_node, cfg):
+    
+def main_worker(gpu, ngpus_per_node, cfg, val_dataset):
     cfg['GPU'] = gpu
     SEED = cfg['SEED'] # random seed for reproduce results
     set_seed(SEED)
@@ -68,7 +64,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
     workers = int(cfg['NUM_WORKERS'])
     DATA_ROOT = cfg['DATA_ROOT'] # the parent root where your train/val/test data are stored
     VAL_DATA_ROOT = cfg['VAL_DATA_ROOT']
-    RECORD_DIR = cfg['RECORD_DIR']
+    VAL_SET = cfg['VAL_SET']
+    #RECORD_DIR = cfg['RECORD_DIR']
     RGB_MEAN = cfg['RGB_MEAN'] # for normalize inputs
     RGB_STD = cfg['RGB_STD']
     DROP_LAST = cfg['DROP_LAST']
@@ -115,7 +112,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
     NUM_CLASS = train_loader.dataset.classes
     print("Number of Training Classes: {}".format(NUM_CLASS))
 
-    lfw, cfp_fp, agedb_30, vgg2_fp, lfw_issame, cfp_fp_issame, agedb_30_issame, vgg2_fp_issame = get_val_data(VAL_DATA_ROOT)
+    
 
     #======= model & loss & optimizer =======#
     BACKBONE_DICT = {'MobileFaceNet': MobileFaceNet,
@@ -140,27 +137,28 @@ def main_worker(gpu, ngpus_per_node, cfg):
                  'Am_softmax': Am_softmax, 'CurricularFace': CurricularFace, 'ArcNegFace': ArcNegFace, 'SVX': SVXSoftmax, 
                  'AirFace': AirFace,'QAMFace': QAMFace, 'CircleLoss':CircleLoss
                 }
+    
     HEAD_NAME = cfg['HEAD_NAME']
     EMBEDDING_SIZE = cfg['EMBEDDING_SIZE'] # feature dimension
     head = HEAD_DICT[HEAD_NAME](in_features = EMBEDDING_SIZE, out_features = NUM_CLASS)
-    #print("Params: ", count_model_params(backbone))
-    #print("Flops:", count_model_flops(backbone))
-    backbone = backbone.eval()
-    summary(backbone, torch.randn(1, 3, 112, 112))
+    print("Params: ", count_model_params(backbone))
+    print("Flops:", count_model_flops(backbone))
+    #backbone = backbone.eval()
+    #summary(backbone, torch.randn(1, 3, 112, 112))
     #backbone = backbone.eval()
     #print("Flops: ", flops_to_string(2*float(profile_macs(backbone.eval(), torch.randn(1, 3, 112, 112)))))
-    backbone = backbone.train()
+    #backbone = backbone.train()
     print("=" * 60)
     print(head)
     print("{} Head Generated".format(HEAD_NAME))
     print("=" * 60)
 
 
-   #--------------------optimizer-----------------------------
+    # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
     if BACKBONE_NAME.find("IR") >= 0:
-        backbone_paras_only_bn, backbone_paras_wo_bn = separate_irse_bn_paras(backbone) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
+        backbone_paras_only_bn, backbone_paras_wo_bn = separate_irse_bn_paras(backbone)
     else:
-        backbone_paras_only_bn, backbone_paras_wo_bn = separate_resnet_bn_paras(backbone) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
+        backbone_paras_only_bn, backbone_paras_wo_bn = separate_resnet_bn_paras(backbone)
 
     torch.cuda.set_device(cfg['GPU'])
     backbone.cuda(cfg['GPU'])
@@ -211,8 +209,6 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print(loss)
     print("{} Loss Generated".format(loss))
     print("=" * 60)
-
-
 
     #optionally resume from a checkpoint
     BACKBONE_RESUME_ROOT = cfg['BACKBONE_RESUME_ROOT'] # the root to resume training from a saved checkpoint
@@ -323,16 +319,12 @@ def main_worker(gpu, ngpus_per_node, cfg):
                 lr = optimizer.param_groups[0]['lr']
                 print("Current lr", lr)
                 print("=" * 60)
-                print("Perform Evaluation on LFW, CFP_FP, AgeD and VGG2_FP, and Save Checkpoints...")
-                accuracy_lfw, best_threshold_lfw, roc_curve_lfw = perform_val(EMBEDDING_SIZE, per_batch_size, backbone, lfw, lfw_issame)
-                buffer_val(writer, "LFW", accuracy_lfw, best_threshold_lfw, roc_curve_lfw, epoch + 1)
-                accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp = perform_val(EMBEDDING_SIZE, per_batch_size, backbone, cfp_fp, cfp_fp_issame)
-                buffer_val(writer, "CFP_FP", accuracy_cfp_fp, best_threshold_cfp_fp, roc_curve_cfp_fp, epoch + 1)
-                accuracy_agedb_30, best_threshold_agedb_30, roc_curve_agedb_30 = perform_val(EMBEDDING_SIZE, per_batch_size, backbone, agedb_30, agedb_30_issame)
-                buffer_val(writer, "AgeDB", accuracy_agedb_30, best_threshold_agedb_30, roc_curve_agedb_30, epoch + 1)
-                accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp = perform_val(EMBEDDING_SIZE, per_batch_size, backbone, vgg2_fp, vgg2_fp_issame)
-                buffer_val(writer, "VGGFace2_FP", accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp, epoch + 1)
-                print("Epoch {}/{}, Evaluation: LFW Acc: {}, CFP_FP Acc: {}, AgeDB Acc: {}, VGG2_FP Acc: {}".format(epoch + 1, NUM_EPOCH, accuracy_lfw, accuracy_cfp_fp, accuracy_agedb_30, accuracy_vgg2_fp))
+                print("Perform Evaluation on %s, and Save Checkpoints..."%(','.join([vs[2] for vs in val_dataset])))
+                for vs in val_dataset:
+                    acc, best_threshold, roc_curve = perform_val(EMBEDDING_SIZE, per_batch_size, backbone, vs[0], vs[1])
+                    buffer_val(writer, "%s"%(vs[2]), acc, best_threshold, roc_curve, epoch + 1)
+                
+                    print("Epoch {}/{}, Evaluation: {}, Acc: {}, Best_Threshold: {}".format(epoch + 1, NUM_EPOCH, vs[2], acc, best_threshold))
                 print("=" * 60)
 
                 print("=" * 60)

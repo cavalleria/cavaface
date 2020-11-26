@@ -129,9 +129,9 @@ class inferThread (threading.Thread):
         threading.Thread.__init__(self)
         self.net = net
         self.fwd_func = fwd_func
-        self.in_q = in_q;
-        self.out_q = out_q;
-        self.batchsz = net.batch_size;
+        self.in_q = in_q
+        self.out_q = out_q
+        self.batchsz = net.batch_size
         self.image_shape = image_shape
         self.is_flip = is_flip
         self.end = False 
@@ -163,7 +163,7 @@ class inferThread (threading.Thread):
                 except queue.Empty as e:
                     if read_done:
                         self.end = True
-                    break;
+                    break
     
             if idx == 0:
               continue
@@ -261,7 +261,7 @@ class CitrusBaseInfer(object):
         self._net_scale_type = "large"
         self._flops = None
         self._epoch = None
-        self._gpu_mem_use = 0;
+        self._gpu_mem_use = 0
         self._nets = []
         self.fwd_func = None
 

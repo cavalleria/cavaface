@@ -12,7 +12,17 @@ from PIL import Image
 import bcolz
 import io
 import os
+import sys
+import time
+import random 
+import cv2
 
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 def get_time():
     return (str(datetime.now())[:-10]).replace(' ', '-').replace(':', '-')
@@ -24,21 +34,34 @@ def l2_norm(input, axis = 1):
     return output
 
 def get_val_pair(path, name):
+    # same as original
+    
     carray = bcolz.carray(rootdir = os.path.join(path, name), mode = 'r')
+    batch = np.array(carray)
+    
+    batch = batch[:,::-1,:,:]
+    cropped = torch.tensor(batch.copy())
+    
+    batch = batch[:,:,:,::-1]
+    flipped = torch.tensor(batch.copy())
+ 
     issame = np.load('{}/{}_list.npy'.format(path, name))
 
-    return carray, issame
+    print("loading %s done"%(name), cropped.size())
+    sys.stdout.flush()
+
+    return [cropped, flipped], issame
 
 
-def get_val_data(data_path):
-    lfw, lfw_issame = get_val_pair(data_path, 'lfw')
-    cfp_fp, cfp_fp_issame = get_val_pair(data_path, 'cfp_fp')
-    agedb_30, agedb_30_issame = get_val_pair(data_path, 'agedb_30')
-    calfw, calfw_issame = get_val_pair(data_path, 'calfw')
-    cplfw, cplfw_issame = get_val_pair(data_path, 'cplfw')
-    vgg2_fp, vgg2_fp_issame = get_val_pair(data_path, 'vgg2_fp')
+def get_val_data(data_path, data_set):
+    val_data = []
+    data_set =  data_set.strip().split(',')
+    for name in data_set:
+        name =name.strip()
+        vd, vd_issame = get_val_pair(data_path, name)
+        val_data.append((vd, vd_issame, name))
 
-    return lfw, cfp_fp, agedb_30, vgg2_fp, lfw_issame, cfp_fp_issame, agedb_30_issame, vgg2_fp_issame 
+    return val_data
 
 def separate_irse_bn_paras(modules):
     if not isinstance(modules, list):
@@ -89,64 +112,32 @@ def schedule_lr(optimizer):
 
     print(optimizer)
 
-
-def de_preprocess(tensor):
-
-    return tensor * 0.5 + 0.5
-
-
-hflip = transforms.Compose([
-            de_preprocess,
-            transforms.ToPILImage(),
-            transforms.functional.hflip,
-            transforms.ToTensor(),
-            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-        ])
-
-
-def hflip_batch(imgs_tensor):
-    hfliped_imgs = torch.empty_like(imgs_tensor)
-    for i, img_ten in enumerate(imgs_tensor):
-        hfliped_imgs[i] = hflip(img_ten)
-
-    return hfliped_imgs
-
-
-ccrop = transforms.Compose([
-            de_preprocess,
-            transforms.ToPILImage(),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-        ])
-
 def perform_val(embedding_size, batch_size, backbone, carray, issame, nrof_folds = 10, tta = True):
     backbone.eval() # switch to evaluation mode
 
     idx = 0
-    embeddings = np.zeros([len(carray), embedding_size])
+    shape = carray[0].shape
+    embeddings = np.zeros([shape[0] , embedding_size])
     with torch.no_grad():
-        while idx + batch_size <= len(carray):
-            batch = torch.tensor(carray[idx:idx + batch_size][:, [2, 1, 0], :, :])
+        while idx + batch_size <= shape[0]:
             if tta:
-                ccropped = ccrop_batch(batch)
-                fliped = hflip_batch(ccropped)
-                emb_batch = backbone(ccropped.cuda()).cpu() + backbone(fliped.cuda()).cpu()
+                cropped = carray[0][idx:idx + batch_size]
+                flipped = carray[1][idx:idx + batch_size]
+                emb_batch = backbone(cropped.cuda()).cpu() + backbone(flipped.cuda()).cpu()
                 embeddings[idx:idx + batch_size] = l2_norm(emb_batch)
             else:
-                ccropped = ccrop_batch(batch)
+                ccropped = carray[0][idx:idx + batch_size]
                 embeddings[idx:idx + batch_size] = l2_norm(backbone(ccropped.cuda())).cpu()
             idx += batch_size
-        if idx < len(carray):
-            batch = torch.tensor(carray[idx:][:, [2, 1, 0], :, :])
+        if idx < shape[0]:
             if tta:
-                ccropped = ccrop_batch(batch)
-                fliped = hflip_batch(ccropped)
-                emb_batch = backbone(ccropped.cuda()).cpu() + backbone(fliped.cuda()).cpu()
-                embeddings[idx:] = l2_norm(emb_batch)
+                cropped = carray[0][idx:,:,:,:]
+                flipped = carray[1][idx:,:,:,:]
+                emb_batch = backbone(cropped.cuda()).cpu() + backbone(flipped.cuda()).cpu()
+                embeddings[idx:] = l2_norm(emb_batch)#[0:shape[0]-idx])
             else:
-                ccropped = ccrop_batch(batch)
-                embeddings[idx:] = l2_norm(backbone(ccropped.cuda())[0]).cpu()
-
+                ccropped = carray[0][idx:,:,:,:]
+                embeddings[idx:] = l2_norm(backbone(ccropped.cuda())).cpu()
     tpr, fpr, accuracy, best_thresholds, bad_case = evaluate(embeddings, issame, nrof_folds)
     buf = gen_plot(fpr, tpr)
     roc_curve = Image.open(buf)
@@ -172,15 +163,6 @@ def gen_plot(fpr, tpr):
     plt.close()
 
     return buf
-
-
-
-def ccrop_batch(imgs_tensor):
-    ccropped_imgs = torch.empty_like(imgs_tensor)
-    for i, img_ten in enumerate(imgs_tensor):
-        ccropped_imgs[i] = ccrop(img_ten)
-
-    return ccropped_imgs
 
 
 class AverageMeter(object):
