@@ -80,19 +80,19 @@ This repo provides a high-performance distribute parallel training framework for
 
 ## Installation
 
-See [INSTALL.md](https://github.com/cavalleria/cavaface.pytorch/blob/master/INSTALL.md).
+See [INSTALL.md](https://github.com/cavalleria/cavaface.pytorch/blob/master/docs/INSTALL.md).
 
 ## Quick start
 
-See [GETTING_STARTED.md](https://github.com/cavalleria/cavaface.pytorch/blob/master/GETTING_STARTED.md).
+See [GETTING_STARTED.md](https://github.com/cavalleria/cavaface.pytorch/blob/master/docs/GETTING_STARTED.md).
 
 ## Model Zoo and Baselines
 
-See [MODEL_ZOO.md](https://github.com/cavalleria/cavaface.pytorch/blob/master/MODEL_ZOO.md).
+See [MODEL_ZOO.md](https://github.com/cavalleria/cavaface.pytorch/blob/master/docs/MODEL_ZOO.md).
 
 ## License
 
-cavaface.pytorch is released under the [MIT license](https://github.com/cavalleria/cavaface.pytorch/blob/master/LICENSE).
+cavaface.pytorch is released under the [MIT license](https://github.com/cavalleria/cavaface.pytorch/blob/master/docs/LICENSE).
 
 ## Acknowledgement
 
