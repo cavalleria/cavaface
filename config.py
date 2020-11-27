@@ -4,16 +4,16 @@ configurations = {
     1: dict(
         SEED = 1337, # random seed for reproduce results
         
-        DATA_ROOT = '../facedata.mxnet/ms1m-retinaface-t1-clean', # the parent root where your train/val/test data are stored
+        DATA_ROOT = '../facedata.mxnet/glint360', # the parent root where your train/val/test data are stored
         VAL_DATA_ROOT = '../facedata.mxnet/face_val_data', # the parent root where your val/test data are stored
         VAL_SET = 'lfw, cfp_fp, agedb_30, vgg2_fp', # validation set name
-        MODEL_ROOT = '../models/face_models/debug/model', # the root to buffer your checkpoints
-        LOG_ROOT = '../models/face_models/debug/logs', # the root to log your train/val status
+        MODEL_ROOT = '../models/face_models/IR100_Arcface_Glint360/model', # the root to buffer your checkpoints
+        LOG_ROOT = '../models/face_models/IR100_Arcface_Glint360/logs', # the root to log your train/val status
         IS_RESUME = False,
         BACKBONE_RESUME_ROOT = "",
         HEAD_RESUME_ROOT = "",
         
-        BACKBONE_NAME = 'IR_SE_100', # support: ['MobileFaceNet', 'ResNet_50', 'ResNet_101', 'ResNet_152', 
+        BACKBONE_NAME = 'IR_100', # support: ['MobileFaceNet', 'ResNet_50', 'ResNet_101', 'ResNet_152', 
                                 #'IR_50', 'IR_101', 'IR_152', 'IR_SE_50', 'IR_SE_100', 'IR_SE_101', 'IR_SE_152',
                                 #'AttentionNet_IR_56', 'AttentionNet_IRSE_56','AttentionNet_IR_92', 'AttentionNet_IRSE_92',
                                 #'ResNeSt_50', 'ResNeSt_101', 'ResNeSt_100']
@@ -34,7 +34,7 @@ configurations = {
         WARMUP_EPOCH = 0, 
         WARMUP_LR = 0.0,
         START_EPOCH = 0, # start epoch
-        NUM_EPOCH = 24, # total epoch number
+        NUM_EPOCH = 16, # total epoch number
         LR_STEP_SIZE = 10, # 'step' scheduler, period of learning rate decay. 
         LR_DECAY_EPOCH = [10, 18, 22], # ms1m epoch stages to decay learning rate
         LR_DECAT_GAMMA = 0.1, # multiplicative factor of learning rate decay
@@ -44,7 +44,7 @@ configurations = {
         
         WORLD_SIZE = 1,
         RANK = 0,
-        GPU = [0,1,2,3,4,5,6,7], # specify your GPU ids
+        GPU = [0,1,2,3,4,5,6,7], # specify your GPU id
         DIST_BACKEND = 'nccl', # 'nccl', 'gloo'
         DIST_URL = 'tcp://localhost:23456',
         NUM_WORKERS = 4,
