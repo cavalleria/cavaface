@@ -50,7 +50,8 @@ configurations = {
         NUM_WORKERS = 4,
         TEST_GPU_ID = [0,1,2,3,4,5,6,7],
 
-        USE_APEX = False,
+        USE_APEX = True,
+        OPT_LEVEL = 'O1',
         SYNC_BN = False,
 
         # Data Augmentation

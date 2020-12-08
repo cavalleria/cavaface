@@ -5,9 +5,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Parameter
 import math
+from config import configurations
 
-
-# Support: ['Softmax', 'ArcFace', 'CosFace', 'SphereFace', 'Am_softmax']
+cfg = configurations[1]
 
 
 class Softmax(nn.Module):
@@ -58,7 +58,7 @@ class ArcFace(nn.Module):
             m: margin
             cos(theta+m)
         """
-    def __init__(self, in_features, out_features, s = 64.0, m = 0.50, easy_margin = False):
+    def __init__(self, in_features, out_features, s = 64.0, m = 0.50):
         super(ArcFace, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -70,7 +70,6 @@ class ArcFace(nn.Module):
         #nn.init.xavier_uniform_(self.kernel)
         nn.init.normal_(self.kernel, std=0.01)
 
-        self.easy_margin = easy_margin
         self.cos_m = math.cos(m)
         self.sin_m = math.sin(m)
         self.th = math.cos(math.pi - m)
@@ -79,19 +78,19 @@ class ArcFace(nn.Module):
     def forward(self, embbedings, label):
         embbedings = l2_norm(embbedings, axis = 1)
         kernel_norm = l2_norm(self.kernel, axis = 0)
-        cos_theta = torch.mm(embbedings, kernel_norm)
-        cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability
+        cos_theta = torch.mm(embbedings, kernel_norm).clamp(-1, 1)  # for numerical stability
         with torch.no_grad():
             origin_cos = cos_theta.clone()
         target_logit = cos_theta[torch.arange(0, embbedings.size(0)), label].view(-1, 1)
 
         sin_theta = torch.sqrt(1.0 - torch.pow(target_logit, 2))
         cos_theta_m = target_logit * self.cos_m - sin_theta * self.sin_m #cos(target+margin)
-        if self.easy_margin:
-            final_target_logit = torch.where(target_logit > 0, cos_theta_m, target_loit)
-        else:
-            final_target_logit = torch.where(target_logit > self.th, cos_theta_m, target_logit - self.mm)
-
+        
+        if cfg['USE_APEX'] == True and cfg['OPT_LEVEL'] == 'O1':
+            target_logit = target_logit.float()
+        final_target_logit = torch.where(target_logit > self.th, cos_theta_m, target_logit - self.mm)
+        if cfg['USE_APEX'] == True and cfg['OPT_LEVEL'] == 'O1':
+            final_target_logit = final_target_logit.half()
         cos_theta.scatter_(1, label.view(-1, 1).long(), final_target_logit)
         output = cos_theta * self.s
         return output

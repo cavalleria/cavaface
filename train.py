@@ -234,7 +234,7 @@ def main_worker(gpu, ngpus_per_node, cfg, val_dataset):
     if SYNC_BN:
         backbone = apex.parallel.convert_syncbn_model(backbone)
     if USE_APEX:
-        [backbone, head], optimizer = amp.initialize([backbone, head], optimizer, opt_level='O2')
+        [backbone, head], optimizer = amp.initialize([backbone, head], optimizer, opt_level=cfg['OPT_LEVEL'])
         backbone = DDP(backbone)
         head = DDP(head)
     else:
