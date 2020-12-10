@@ -338,6 +338,8 @@ def main_worker(gpu, ngpus_per_node, cfg, val_dataset):
                                     'OPTIMIZER': optimizer.state_dict()}
                         torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
                     '''
+                    if USE_APEX:
+                        ori_backbone = ori_backbone.half()
                     ori_backbone.load_state_dict(backbone.module.state_dict())
                     ori_backbone.eval()
                     x = torch.randn(1,3,112,112).cuda()
