@@ -27,6 +27,7 @@
 | ResNeSt-101 | MS1MV3 | Arcface | Softmax | 18.45G/97.61M | 98.8746/98.5615 | 96.63 |
 | DenseNet-201 | MS1MV3 | Arcface | Softmax | 8.52G/66.37M | 98.3649/98.4294 | 96.03 |
 | [IR-100](https://drive.google.com/file/d/1kzWAOa6bH9-mfR7MDmy-giyTjI9TbWtW/view?usp=sharing) | Glint360k | Arcface | Softmax | 24.18G/65.5M  | 99.2964/98.8792 | 97.19 |
+| IR-100 | Glint360k | CosFace | Softmax | 24.18G/65.5M  | 99.2625/99.1812 | 97.40 |
 
 ## Data augmentation
 
