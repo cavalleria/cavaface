@@ -22,6 +22,9 @@ This repo provides a high-performance distribute parallel training framework for
 
 ## Features
 
+<details open>
+<summary>(click to collapse)</summary>
+
 * **Backbone**
   * [x] ResNet(IR-SE)
   * [x] ResNeXt
@@ -78,6 +81,7 @@ This repo provides a high-performance distribute parallel training framework for
   * [x] LR warmup
   * [ ] Zero gamma
 
+</details>
 ## Installation
 
 See [INSTALL.md](https://github.com/cavalleria/cavaface.pytorch/blob/master/docs/INSTALL.md).
