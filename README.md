@@ -3,7 +3,6 @@
 [![python-url](https://img.shields.io/badge/Python-3.x-red.svg)](https://www.python.org/)
 [![pytorch-url](https://img.shields.io/badge/Pytorch-1.4-blue.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![HitCount](http://hits.dwyl.com/cavalleria/cavafacepytorch.svg)](http://hits.dwyl.com/cavalleria/cavafacepytorch)
 
 By Yaobin Li and Liying Chi
 
@@ -47,7 +46,7 @@ This repo provides a high-performance distribute parallel training framework for
 * **Loss**
   * [x] Softmax
   * [x] SphereFace
-  * [x] Am_Softmax
+  * [x] AMSoftmax
   * [x] CosFace
   * [x] ArcFace
   * [x] Combined Loss
@@ -64,7 +63,7 @@ This repo provides a high-performance distribute parallel training framework for
 * **Automatic Mixed Precision**
   * [x] Apex
 * **Optimizer**
-  * [x] LR_Scheduler([faireq](https://github.com/pytorch/fairseq/tree/master/fairseq/optim/lr_scheduler),[rwightman](https://github.com/rwightman/pytorch-image-models/tree/master/timm/scheduler))
+  * [x] LRScheduler([faireq](https://github.com/pytorch/fairseq/tree/master/fairseq/optim/lr_scheduler),[rwightman](https://github.com/rwightman/pytorch-image-models/tree/master/timm/scheduler))
   * [x] Optim(SGD,Adam,RAdam,LookAhead,Ranger,AdamP,SGDP)
 * **[Data Augmentation](https://github.com/albumentations-team/albumentations)**
   * [x] [RandomErasing](https://github.com/zhunzhong07/Random-Erasing/blob/master/transforms.py)(官方版torchvision.transforms.RandomErasing)
@@ -79,7 +78,6 @@ This repo provides a high-performance distribute parallel training framework for
 * **Bag of Tricks**
   * [x] Label smooth
   * [x] LR warmup
-  * [ ] Zero gamma
 
 </details>
 
