@@ -79,6 +79,6 @@ tqdm==4.45.0
 traitlets==4.3.3
 typing==3.6.4
 typing-extensions==3.7.4.1
-urllib3==1.25.8
+urllib3==1.26.5
 wcwidth==0.1.9
 zict==2.0.0
