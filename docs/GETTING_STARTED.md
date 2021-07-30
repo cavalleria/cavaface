@@ -6,6 +6,8 @@
 
 **For test data**, please download the megaface and ijbc in https://github.com/deepinsight/insightface/tree/master/Evaluation.
 
+We provide our ms1m_retianface clean list. [Download](https://drive.google.com/file/d/165O76LkDBwo-PnCuTIdn45sXxWWhOBFh/view?usp=sharing)
+
 ### Training and Testing
 
 #### Training on ms1m-retinaface
@@ -13,10 +15,6 @@
 ```bash
 You can change the experimental setting by simply modifying the parameter in the config.py
 bash train.sh
-# To evaluate the model on validation set:
-(1)please first download the val data in https://github.com/ZhaoJ9014/face.evoLVe.PyTorch.
-(2)set the checkpoint dir in config.py
-bash evaluate.sh
 ```
 
 #### Testing on Megaface and IJBC
