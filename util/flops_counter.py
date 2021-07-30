@@ -1,11 +1,7 @@
 # -*- coding:utf8 -*-
 import torch
-import torchvision
-
-import torch.nn as nn
-from torch.autograd import Variable
-
 import numpy as np
+from torch.autograd import Variable
 
 def flops_to_string(flops, units='GFLOPS', precision=2):
     if units == 'GFLOPS':

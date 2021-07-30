@@ -23,15 +23,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import numpy as np
-from sklearn.model_selection import KFold
-from sklearn.decomposition import PCA
+import os
+import pickle
 import sklearn
+import torch
+import numpy as np
+import mxnet as mx
+from mxnet import ndarray as nd
 from scipy import interpolate
-from scipy.spatial.distance import pdist
-from . import metrics
+from sklearn.decomposition import PCA
+from sklearn.model_selection import KFold
 
-# Support: ['calculate_roc', 'calculate_accuracy', 'calculate_val', 'calculate_val_far', 'evaluate']
 
 def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_folds = 10, pca = 0):
     assert (embeddings1.shape[0] == embeddings2.shape[0])
@@ -184,3 +186,136 @@ def evaluate(embeddings, actual_issame, nrof_folds = 10, pca = 0):
 #     return tpr, fpr, accuracy, best_thresholds, val, val_std, far
   
     return tpr, fpr, accuracy, best_thresholds, bad_case
+
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val   = 0
+        self.avg   = 0
+        self.sum   = 0
+        self.count = 0
+
+    def update(self, val, n = 1):
+        self.val   = val
+        self.sum   += val * n
+        self.count += n
+        self.avg   = self.sum / self.count
+
+
+def accuracy(output, target, topk=(1,)):
+    """Computes the precision@k for the specified values of k"""
+    maxk = max(topk)
+    batch_size = target.size(0)
+
+    _, pred = output.topk(maxk, 1, True, True)
+    pred    = pred.t()
+    correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+    res = []
+    for k in topk:
+        correct_k = correct[:k].reshape((-1,)).float().sum(0)
+        res.append(correct_k.mul_(100.0 / batch_size))
+
+    return res
+
+def get_val_dataset(data_dir, val_set_name):
+    ver_list = []
+    ver_name_list = []
+    for name in val_set_name:
+        path = os.path.join(data_dir, name + ".bin")
+        if os.path.exists(path):
+            data_set = load_bin(path)
+            ver_list.append(data_set)
+            ver_name_list.append(name)
+    return (ver_list, ver_name_list)
+
+def ver_test(ver_dataset, backbone):
+    results = []
+    _, _, acc2, std2, xnorm, _ = test(ver_dataset, backbone, 10, 10)
+        
+    results.append(acc2)
+    results.append(std2)
+    results.append(xnorm)
+    return results
+  
+@torch.no_grad()
+def load_bin(path, image_size=(112, 112)):
+    try:
+        with open(path, 'rb') as f:
+            bins, issame_list = pickle.load(f)  # py2
+    except UnicodeDecodeError as e:
+        with open(path, 'rb') as f:
+            bins, issame_list = pickle.load(f, encoding='bytes')  # py3
+    data_list = []
+    for flip in [0, 1]:
+        data = torch.empty((len(issame_list) * 2, 3, image_size[0], image_size[1]))
+        data_list.append(data)
+    for idx in range(len(issame_list) * 2):
+        _bin = bins[idx]
+        img = mx.image.imdecode(_bin)
+        if img.shape[1] != image_size[0]:
+            img = mx.image.resize_short(img, image_size[0])
+        img = nd.transpose(img, axes=(2, 0, 1))
+        for flip in [0, 1]:
+            if flip == 1:
+                img = mx.ndarray.flip(data=img, axis=2)
+            data_list[flip][idx][:] = torch.from_numpy(img.asnumpy())
+        if idx % 1000 == 0:
+            print('loading bin', idx)
+    print(data_list[0].shape)
+    return data_list, issame_list
+
+@torch.no_grad()
+def test(data_set, backbone, batch_size, nfolds=10):
+    print('testing verification..')
+    data_list = data_set[0]
+    issame_list = data_set[1]
+    embeddings_list = []
+    time_consumed = 0.0
+    for i in range(len(data_list)):
+        data = data_list[i]
+        embeddings = None
+        ba = 0
+        while ba < data.shape[0]:
+            bb = min(ba + batch_size, data.shape[0])
+            count = bb - ba
+            _data = data[bb - batch_size: bb]
+            time0 = datetime.datetime.now()
+            img = ((_data / 255) - 0.5) / 0.5
+            net_out = backbone(img)
+            _embeddings = net_out.detach().cpu().numpy()
+            time_now = datetime.datetime.now()
+            diff = time_now - time0
+            time_consumed += diff.total_seconds()
+            if embeddings is None:
+                embeddings = np.zeros((data.shape[0], _embeddings.shape[1]))
+            embeddings[ba:bb, :] = _embeddings[(batch_size - count):, :]
+            ba = bb
+        embeddings_list.append(embeddings)
+
+    _xnorm = 0.0
+    _xnorm_cnt = 0
+    for embed in embeddings_list:
+        for i in range(embed.shape[0]):
+            _em = embed[i]
+            _norm = np.linalg.norm(_em)
+            _xnorm += _norm
+            _xnorm_cnt += 1
+    _xnorm /= _xnorm_cnt
+
+    embeddings = embeddings_list[0].copy()
+    embeddings = sklearn.preprocessing.normalize(embeddings)
+    acc1 = 0.0
+    std1 = 0.0
+    embeddings = embeddings_list[0] + embeddings_list[1]
+    embeddings = sklearn.preprocessing.normalize(embeddings)
+    print(embeddings.shape)
+    print('infer time', time_consumed)
+    _, _, accuracy, val, val_std, far = evaluate(embeddings, issame_list, nrof_folds=nfolds)
+    acc2, std2 = np.mean(accuracy), np.std(accuracy)
+    
+    return acc1, std1, acc2, std2, _xnorm, embeddings_list

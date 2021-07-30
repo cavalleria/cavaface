@@ -4,11 +4,10 @@ configurations = {
     1: dict(
         SEED = 1337, # random seed for reproduce results
         
-        DATA_ROOT = '../facedata.mxnet/glint360', # the parent root where your train/val/test data are stored
-        VAL_DATA_ROOT = '../facedata.mxnet/face_val_data', # the parent root where your val/test data are stored
-        VAL_SET = 'lfw, cfp_fp, agedb_30, vgg2_fp', # validation set name
-        MODEL_ROOT = '../models/face_models/IR100_Arcface_Glint360/model', # the root to buffer your checkpoints
-        LOG_ROOT = '../models/face_models/IR100_Arcface_Glint360/logs', # the root to log your train/val status
+        DATA_ROOT = '../data/ms1m-retinaface-t1', # the parent root where your train/val/test data are stored
+        VAL_SET = 'lfw, cfp_fp, agedb_30', # validation set name
+        MODEL_ROOT = '../models/tmp/model', # the root to buffer your checkpoints
+        LOG_ROOT = '../models/tmp/logs', # the root to log your train/val status
         IS_RESUME = False,
         BACKBONE_RESUME_ROOT = "",
         HEAD_RESUME_ROOT = "",
@@ -23,34 +22,34 @@ configurations = {
         INPUT_SIZE = [112, 112], # support: [112, 112] and [224, 224]
         RGB_MEAN = [0.5, 0.5, 0.5], # for normalize inputs to [-1, 1]
         RGB_STD = [0.5, 0.5, 0.5],
-        EMBEDDING_SIZE = 512, # feature dimension
+        EMBEDDING_SIZE = 512,
         BATCH_SIZE = 1024,
         EVAL_FREQ = 2000, #for ms1m, batch size 1024, EVAL_FREQ=2000
         DROP_LAST = True, # whether drop the last batch to ensure consistent batch_norm statistics
         
         OPTIMIZER = 'sgd', # sgd, adam, lookahead, radam, ranger, adamp, sgdp
-        LR = 0.1, # initial LR, use smaller lr for adam seris
+        LR = 0.1,
         LR_SCHEDULER = 'cosine', # step/multi_step/cosine
         WARMUP_EPOCH = 0, 
         WARMUP_LR = 0.0,
-        START_EPOCH = 0, # start epoch
-        NUM_EPOCH = 16, # total epoch number
-        LR_STEP_SIZE = 10, # 'step' scheduler, period of learning rate decay. 
-        LR_DECAY_EPOCH = [10, 18, 22], # ms1m epoch stages to decay learning rate
-        LR_DECAT_GAMMA = 0.1, # multiplicative factor of learning rate decay
-        LR_END = 1e-5, # minimum learning rate
-        WEIGHT_DECAY = 5e-4, # do not apply to batch_norm parameters
+        START_EPOCH = 0,
+        NUM_EPOCH = 16,
+        LR_STEP_SIZE = 10, 
+        LR_DECAY_EPOCH = [10, 18, 22],
+        LR_DECAT_GAMMA = 0.1,
+        LR_END = 1e-5,
+        WEIGHT_DECAY = 5e-4,
         MOMENTUM = 0.9,
         
         WORLD_SIZE = 1,
         RANK = 0,
         GPU = [0,1,2,3,4,5,6,7], # specify your GPU id
-        DIST_BACKEND = 'nccl', # 'nccl', 'gloo'
+        DIST_BACKEND = 'nccl',
         DIST_URL = 'tcp://localhost:23456',
         NUM_WORKERS = 2,
         TEST_GPU_ID = [0,1,2,3,4,5,6,7],
 
-        USE_APEX = True,
+        USE_APEX = False,
         OPT_LEVEL = 'O1',
         SYNC_BN = False,
 

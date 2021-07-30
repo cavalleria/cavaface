@@ -1,21 +1,7 @@
 import torch
-import torchvision.transforms as transforms
-import torch.nn.functional as F
-
-from .verification import evaluate
-
-from datetime import datetime
-import matplotlib.pyplot as plt
-plt.switch_backend('agg')
-import numpy as np
-from PIL import Image
-import bcolz
-import io
-import os
-import sys
-import time
 import random 
-import cv2
+import numpy as np
+from datetime import datetime
 
 def set_seed(seed):
     random.seed(seed)
@@ -27,41 +13,10 @@ def set_seed(seed):
 def get_time():
     return (str(datetime.now())[:-10]).replace(' ', '-').replace(':', '-')
 
-
 def l2_norm(input, axis = 1):
     norm = torch.norm(input, 2, axis, True)
     output = torch.div(input, norm)
     return output
-
-def get_val_pair(path, name):
-    # same as original
-    
-    carray = bcolz.carray(rootdir = os.path.join(path, name), mode = 'r')
-    batch = np.array(carray)
-    
-    batch = batch[:,::-1,:,:]
-    cropped = torch.tensor(batch.copy())
-    
-    batch = batch[:,:,:,::-1]
-    flipped = torch.tensor(batch.copy())
- 
-    issame = np.load('{}/{}_list.npy'.format(path, name))
-
-    print("loading %s done"%(name), cropped.size())
-    sys.stdout.flush()
-
-    return [cropped, flipped], issame
-
-
-def get_val_data(data_path, data_set):
-    val_data = []
-    data_set =  data_set.strip().split(',')
-    for name in data_set:
-        name =name.strip()
-        vd, vd_issame = get_val_pair(data_path, name)
-        val_data.append((vd, vd_issame, name))
-
-    return val_data
 
 def separate_irse_bn_paras(modules):
     if not isinstance(modules, list):
@@ -84,7 +39,6 @@ def separate_irse_bn_paras(modules):
                 paras_wo_bn.extend([*layer.parameters()])
     return paras_only_bn, paras_wo_bn
 
-
 def separate_resnet_bn_paras(modules):
     all_parameters = modules.parameters()
     paras_only_bn = []
@@ -97,104 +51,3 @@ def separate_resnet_bn_paras(modules):
     paras_wo_bn = list(filter(lambda p: id(p) not in paras_only_bn_id, all_parameters))
     
     return paras_only_bn, paras_wo_bn
-
-
-def warm_up_lr(batch, num_batch_warm_up, init_lr, optimizer):
-    for params in optimizer.param_groups:
-        params['lr'] = batch * init_lr / num_batch_warm_up
-
-    # print(optimizer)
-
-
-def schedule_lr(optimizer):
-    for params in optimizer.param_groups:
-        params['lr'] /= 10.
-
-    print(optimizer)
-
-def perform_val(embedding_size, batch_size, backbone, carray, issame, nrof_folds = 10, tta = True):
-    backbone.eval() # switch to evaluation mode
-
-    idx = 0
-    shape = carray[0].shape
-    embeddings = np.zeros([shape[0] , embedding_size])
-    with torch.no_grad():
-        while idx + batch_size <= shape[0]:
-            if tta:
-                cropped = carray[0][idx:idx + batch_size]
-                flipped = carray[1][idx:idx + batch_size]
-                emb_batch = backbone(cropped.cuda()).cpu() + backbone(flipped.cuda()).cpu()
-                embeddings[idx:idx + batch_size] = l2_norm(emb_batch)
-            else:
-                ccropped = carray[0][idx:idx + batch_size]
-                embeddings[idx:idx + batch_size] = l2_norm(backbone(ccropped.cuda())).cpu()
-            idx += batch_size
-        if idx < shape[0]:
-            if tta:
-                cropped = carray[0][idx:,:,:,:]
-                flipped = carray[1][idx:,:,:,:]
-                emb_batch = backbone(cropped.cuda()).cpu() + backbone(flipped.cuda()).cpu()
-                embeddings[idx:] = l2_norm(emb_batch)#[0:shape[0]-idx])
-            else:
-                ccropped = carray[0][idx:,:,:,:]
-                embeddings[idx:] = l2_norm(backbone(ccropped.cuda())).cpu()
-    tpr, fpr, accuracy, best_thresholds, bad_case = evaluate(embeddings, issame, nrof_folds)
-    buf = gen_plot(fpr, tpr)
-    roc_curve = Image.open(buf)
-    roc_curve_tensor = transforms.ToTensor()(roc_curve)
-    backbone.train()
-    return accuracy.mean(), best_thresholds.mean(), roc_curve_tensor
-
-def buffer_val(writer, db_name, acc, best_threshold, roc_curve_tensor, epoch):
-    writer.add_scalar('{}_Accuracy'.format(db_name), acc, epoch)
-    writer.add_scalar('{}_Best_Threshold'.format(db_name), best_threshold, epoch)
-    writer.add_image('{}_ROC_Curve'.format(db_name), roc_curve_tensor, epoch)
-    
-def gen_plot(fpr, tpr):
-    """Create a pyplot plot and save to buffer."""
-    plt.figure()
-    plt.xlabel("FPR", fontsize = 14)
-    plt.ylabel("TPR", fontsize = 14)
-    plt.title("ROC Curve", fontsize = 14)
-    plot = plt.plot(fpr, tpr, linewidth = 2)
-    buf = io.BytesIO()
-    plt.savefig(buf, format = 'jpeg')
-    buf.seek(0)
-    plt.close()
-
-    return buf
-
-
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val   = 0
-        self.avg   = 0
-        self.sum   = 0
-        self.count = 0
-
-    def update(self, val, n = 1):
-        self.val   = val
-        self.sum   += val * n
-        self.count += n
-        self.avg   = self.sum / self.count
-
-
-def accuracy(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
-    maxk = max(topk)
-    batch_size = target.size(0)
-
-    _, pred = output.topk(maxk, 1, True, True)
-    pred    = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-    res = []
-    for k in topk:
-        correct_k = correct[:k].reshape((-1,)).float().sum(0)
-        res.append(correct_k.mul_(100.0 / batch_size))
-
-    return res
