@@ -86,10 +86,10 @@ class ArcFace(nn.Module):
         sin_theta = torch.sqrt(1.0 - torch.pow(target_logit, 2))
         cos_theta_m = target_logit * self.cos_m - sin_theta * self.sin_m #cos(target+margin)
         
-        if cfg['USE_APEX'] == True and cfg['OPT_LEVEL'] == 'O1':
+        if cfg['USE_AMP'] == True and cfg['OPT_LEVEL'] == 'O1':
             target_logit = target_logit.float()
         final_target_logit = torch.where(target_logit > self.th, cos_theta_m, target_logit - self.mm)
-        if cfg['USE_APEX'] == True and cfg['OPT_LEVEL'] == 'O1':
+        if cfg['USE_AMP'] == True and cfg['OPT_LEVEL'] == 'O1':
             final_target_logit = final_target_logit.half()
         cos_theta.scatter_(1, label.view(-1, 1).long(), final_target_logit)
         output = cos_theta * self.s
@@ -349,15 +349,15 @@ class CurricularFace(nn.Module):
         sin_theta = torch.sqrt(1.0 - torch.pow(target_logit, 2))
         cos_theta_m = target_logit * self.cos_m - sin_theta * self.sin_m #cos(target+margin)
         mask = cos_theta > cos_theta_m
-        if cfg['USE_APEX'] == True and cfg['OPT_LEVEL'] == 'O1':
+        if cfg['USE_AMP'] == True and cfg['OPT_LEVEL'] == 'O1':
             target_logit = target_logit.float()
         final_target_logit = torch.where(target_logit > self.threshold, cos_theta_m, target_logit - self.mm)
-        if cfg['USE_APEX'] == True and cfg['OPT_LEVEL'] == 'O1':
+        if cfg['USE_AMP'] == True and cfg['OPT_LEVEL'] == 'O1':
             final_target_logit = final_target_logit.half()
         hard_example = cos_theta[mask]
         with torch.no_grad():
             self.t = target_logit.mean() * 0.01 + (1 - 0.01) * self.t
-        if cfg['USE_APEX'] == True and cfg['OPT_LEVEL'] == 'O1':
+        if cfg['USE_AMP'] == True and cfg['OPT_LEVEL'] == 'O1':
             self.t = self.t.half()
         cos_theta[mask] = hard_example * (self.t + hard_example)
         cos_theta.scatter_(1, label.view(-1, 1).long(), final_target_logit)

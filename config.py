@@ -7,7 +7,6 @@ configurations = {
         DATA_ROOT = '../data/ms1m-retinaface-t1', # the parent root where your train/val/test data are stored
         VAL_SET = 'lfw, cfp_fp, agedb_30', # validation set name
         MODEL_ROOT = '../models/tmp/model', # the root to buffer your checkpoints
-        LOG_ROOT = '../models/tmp/logs', # the root to log your train/val status
         IS_RESUME = False,
         BACKBONE_RESUME_ROOT = "",
         HEAD_RESUME_ROOT = "",
@@ -17,7 +16,7 @@ configurations = {
                                 #'AttentionNet_IR_56', 'AttentionNet_IRSE_56','AttentionNet_IR_92', 'AttentionNet_IRSE_92',
                                 #'ResNeSt_50', 'ResNeSt_101', 'ResNeSt_100']
         HEAD_NAME = "ArcFace", # support:  ['Softmax', 'ArcFace', 'CosFace', 'SphereFace', 'Am_softmax', 'ArcNegFace', 'CurricularFace', 'SVX']
-        LOSS_NAME = 'Softmax', # support: [''Softmax', Focal', 'HardMining', 'LabelSmooth', 'Softplus']
+        LOSS_NAME = 'CrossEntropy', # support: [''CrossEntropy', Focal', 'HardMining', 'LabelSmooth', 'Softplus']
         
         INPUT_SIZE = [112, 112], # support: [112, 112] and [224, 224]
         RGB_MEAN = [0.5, 0.5, 0.5], # for normalize inputs to [-1, 1]
@@ -49,7 +48,7 @@ configurations = {
         NUM_WORKERS = 2,
         TEST_GPU_ID = [0,1,2,3,4,5,6,7],
 
-        USE_APEX = False,
+        USE_AMP = False,
         OPT_LEVEL = 'O1',
         SYNC_BN = False,
 

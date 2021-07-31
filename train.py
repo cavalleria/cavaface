@@ -11,7 +11,6 @@ import torch.optim as optim
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import torchvision.transforms as transforms
-from apex.parallel import DistributedDataParallel as DDP
 
 from config import configurations
 from backbone import *
@@ -49,9 +48,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
     dist.init_process_group(backend=cfg['DIST_BACKEND'], init_method = cfg["DIST_URL"], world_size=cfg['WORLD_SIZE'], rank=cfg['RANK'])
 
     MODEL_ROOT = cfg['MODEL_ROOT']
-    LOG_ROOT = cfg['LOG_ROOT']
     os.makedirs(MODEL_ROOT, exist_ok=True)
-    os.makedirs(LOG_ROOT, exist_ok=True)
 
     batch_size = int(cfg['BATCH_SIZE'])
     per_batch_size = int(batch_size / ngpus_per_node)
@@ -69,7 +66,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
     WARMUP_EPOCH = cfg['WARMUP_EPOCH']
     WARMUP_LR = cfg['WARMUP_LR']
     NUM_EPOCH = cfg['NUM_EPOCH']
-    USE_APEX = cfg['USE_APEX']
+    USE_AMP = cfg['USE_AMP']
     EVAL_FREQ = cfg['EVAL_FREQ']
     SYNC_BN = cfg['SYNC_BN']
     print("=" * 60)
@@ -98,7 +95,6 @@ def main_worker(gpu, ngpus_per_node, cfg):
                                                 shuffle = (train_sampler is None), num_workers=workers,
                                                 pin_memory=True, sampler=train_sampler, drop_last=DROP_LAST)
     NUM_CLASS = train_loader.dataset.classes
-    print("Number of Training Classes: {}".format(NUM_CLASS))
 
     #======= model & loss & optimizer =======#
     BACKBONE_DICT = {'MobileFaceNet': MobileFaceNet,
@@ -179,7 +175,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
 
     # loss
     LOSS_NAME = cfg['LOSS_NAME']
-    LOSS_DICT = {'Softmax'      : nn.CrossEntropyLoss(),
+    LOSS_DICT = {'CrossEntropy' : nn.CrossEntropyLoss(),
                  'LabelSmooth'  : LabelSmoothCrossEntropyLoss(classes=NUM_CLASS),
                  'Focal'        : FocalLoss(),
                  'HM'           : HardMining(),
@@ -187,7 +183,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
     loss = LOSS_DICT[LOSS_NAME].cuda(gpu)
     print("=" * 60)
     print(loss)
-    print("{} Loss Generated".format(loss))
+    print("{} Loss Generated".format(LOSS_NAME))
     print("=" * 60)
 
     #optionally resume from a checkpoint
@@ -213,10 +209,10 @@ def main_worker(gpu, ngpus_per_node, cfg):
     ori_backbone = copy.deepcopy(backbone)
     if SYNC_BN:
         backbone = apex.parallel.convert_syncbn_model(backbone)
-    if USE_APEX:
+    if USE_AMP:
         [backbone, head], optimizer = amp.initialize([backbone, head], optimizer, opt_level=cfg['OPT_LEVEL'])
-        backbone = DDP(backbone)
-        head = DDP(head)
+        backbone = apex.parallel.DistributedDataParallel(backbone)
+        head = apex.parallel.DistributedDataParallel(head)
     else:
         backbone = torch.nn.parallel.DistributedDataParallel(backbone, device_ids=[cfg['GPU']])
         head = torch.nn.parallel.DistributedDataParallel(head, device_ids=[cfg['GPU']])
@@ -255,7 +251,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
                 lossx = loss(outputs, labels) if HEAD_NAME != 'CircleLoss' else loss(outputs).mean()
 
             optimizer.zero_grad()
-            if USE_APEX:
+            if USE_AMP:
                 with amp.scale_loss(lossx, optimizer) as scaled_loss:
                     scaled_loss.backward()
             else:
@@ -297,7 +293,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
                                     'OPTIMIZER': optimizer.state_dict()}
                         torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
                     '''
-                    if USE_APEX:
+                    if USE_AMP:
                         ori_backbone = ori_backbone.half()
                     ori_backbone.load_state_dict(backbone.module.state_dict())
                     ori_backbone.eval()
