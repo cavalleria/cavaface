@@ -53,7 +53,9 @@ def main_worker(gpu, ngpus_per_node, cfg):
     batch_size = int(cfg['BATCH_SIZE'])
     per_batch_size = int(batch_size / ngpus_per_node)
     workers = int(cfg['NUM_WORKERS'])
-    DATA_ROOT = cfg['DATA_ROOT'] 
+    DATA_ROOT = cfg['DATA_ROOT']
+    SYNC_DATA = cfg['SYNC_DATA']
+    SYNC_DATA_NUMCLASS = cfg['SYNC_DATA_NUMCLASS']
     RGB_MEAN = cfg['RGB_MEAN']
     RGB_STD = cfg['RGB_STD']
     DROP_LAST = cfg['DROP_LAST']
@@ -89,7 +91,11 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print(train_transform)
     print("Train Transform Generated")
     print("=" * 60)
-    dataset_train = MXFaceDataset(DATA_ROOT, train_transform)
+
+    if SYNC_DATA:
+        dataset_train = SyntheticDataset(SYNC_DATA_NUMCLASS)
+    else:
+        dataset_train = MXFaceDataset(DATA_ROOT, train_transform)
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
     train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=per_batch_size,
                                                 shuffle = (train_sampler is None), num_workers=workers,

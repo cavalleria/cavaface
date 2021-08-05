@@ -152,3 +152,20 @@ class MXFaceDataset(Dataset):
     def __len__(self):
         return len(self.imgidx)
         
+
+class SyntheticDataset(Dataset):
+    def __init__(self, classes):
+        super(SyntheticDataset, self).__init__()
+        img = np.random.randint(0, 255, size=(112, 112, 3), dtype=np.int32)
+        img = np.transpose(img, (2, 0, 1))
+        img = torch.from_numpy(img).squeeze(0).float()
+        img = ((img / 255) - 0.5) / 0.5
+        self.img = img
+        self.label = 1
+        self.classes = classes
+
+    def __getitem__(self, index):
+        return self.img, self.label
+
+    def __len__(self):
+        return self.classes
