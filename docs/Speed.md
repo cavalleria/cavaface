@@ -1,8 +1,10 @@
 # Training Speed Benchmark
 
-## aa
 
-Device: 8 * Tesla V100-PCIE-32GB
+## Training speed 
+
+Tesla V100-PCIE-32GB
+
 | Backbone | Dataset | Batch Size | FP16 | Samples/s |
 | :----: | :----: | :----: | :----: | :----: |
 | MobileFaceNet | MS1MV3 | 8x128 | False | 7065 |
@@ -14,11 +16,10 @@ Device: 8 * Tesla V100-PCIE-32GB
 | IR_100 | Glint360k | 8x128 | False | 1413 |
 | IR_100 | Glint360k | 8x128 | True | 2682 |
 
-
-## Training speed 
-
 Tesla V100 SMX2 32G
+
 NVIDIA-SMI 465.19.01    Driver Version: 465.19.01    CUDA Version: 11.3
+
 ngc_pytorch_21.02py3:latest
 
 | classes |	backbone | batchsize | amp | speed | gpu memory |
