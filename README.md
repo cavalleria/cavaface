@@ -1,4 +1,4 @@
-# cavaface.pytorch: A Pytorch Training Framework for Deep Face Recognition
+# cavaface: A Pytorch Training Framework for Deep Face Recognition
 
 [![python-url](https://img.shields.io/badge/Python-3.x-red.svg)](https://www.python.org/)
 [![pytorch-url](https://img.shields.io/badge/Pytorch-1.4-blue.svg)](https://pytorch.org/)
