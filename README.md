@@ -95,7 +95,7 @@ See [MODEL_ZOO.md](https://github.com/cavalleria/cavaface.pytorch/blob/master/do
 
 ## License
 
-cavaface.pytorch is released under the [MIT license](https://github.com/cavalleria/cavaface.pytorch/blob/master/docs/LICENSE).
+cavaface is released under the [MIT license](https://github.com/cavalleria/cavaface.pytorch/blob/master/docs/LICENSE).
 
 ## Acknowledgement
 
