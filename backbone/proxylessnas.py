@@ -33,15 +33,12 @@ class ProxylessBlock(nn.Module):
     expansion : int
         Expansion ratio.
     """
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 kernel_size,
-                 stride,
-                 bn_eps,
-                 expansion):
+
+    def __init__(
+        self, in_channels, out_channels, kernel_size, stride, bn_eps, expansion
+    ):
         super(ProxylessBlock, self).__init__()
-        self.use_bc = (expansion > 1)
+        self.use_bc = expansion > 1
         mid_channels = in_channels * expansion
 
         if self.use_bc:
@@ -49,7 +46,8 @@ class ProxylessBlock(nn.Module):
                 in_channels=in_channels,
                 out_channels=mid_channels,
                 bn_eps=bn_eps,
-                activation="relu6")
+                activation="relu6",
+            )
 
         padding = (kernel_size - 1) // 2
         self.dw_conv = ConvBlock(
@@ -60,12 +58,14 @@ class ProxylessBlock(nn.Module):
             padding=padding,
             groups=mid_channels,
             bn_eps=bn_eps,
-            activation="relu6")
+            activation="relu6",
+        )
         self.pw_conv = conv1x1_block(
             in_channels=mid_channels,
             out_channels=out_channels,
             bn_eps=bn_eps,
-            activation=None)
+            activation=None,
+        )
 
     def forward(self, x):
         if self.use_bc:
@@ -98,17 +98,20 @@ class ProxylessUnit(nn.Module):
     shortcut : bool
         Whether to use identity branch.
     """
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 kernel_size,
-                 stride,
-                 bn_eps,
-                 expansion,
-                 residual,
-                 shortcut):
+
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+        stride,
+        bn_eps,
+        expansion,
+        residual,
+        shortcut,
+    ):
         super(ProxylessUnit, self).__init__()
-        assert (residual or shortcut)
+        assert residual or shortcut
         self.residual = residual
         self.shortcut = shortcut
 
@@ -119,7 +122,8 @@ class ProxylessUnit(nn.Module):
                 kernel_size=kernel_size,
                 stride=stride,
                 bn_eps=bn_eps,
-                expansion=expansion)
+                expansion=expansion,
+            )
 
     def forward(self, x):
         if not self.residual:
@@ -162,26 +166,33 @@ class ProxylessNAS(nn.Module):
     num_classes : int, default 1000
         Number of classification classes.
     """
-    def __init__(self,
-                 channels,
-                 init_block_channels,
-                 final_block_channels,
-                 residuals,
-                 shortcuts,
-                 kernel_sizes,
-                 expansions,
-                 bn_eps=1e-3,
-                 in_channels=3,
-                 embedding_size=512):
+
+    def __init__(
+        self,
+        channels,
+        init_block_channels,
+        final_block_channels,
+        residuals,
+        shortcuts,
+        kernel_sizes,
+        expansions,
+        bn_eps=1e-3,
+        in_channels=3,
+        embedding_size=512,
+    ):
         super(ProxylessNAS, self).__init__()
 
         self.features = nn.Sequential()
-        self.features.add_module("init_block", conv3x3_block(
-            in_channels=in_channels,
-            out_channels=init_block_channels,
-            stride=1,
-            bn_eps=bn_eps,
-            activation="prelu"))
+        self.features.add_module(
+            "init_block",
+            conv3x3_block(
+                in_channels=in_channels,
+                out_channels=init_block_channels,
+                stride=1,
+                bn_eps=bn_eps,
+                activation="prelu",
+            ),
+        )
         in_channels = init_block_channels
         for i, channels_per_stage in enumerate(channels):
             stage = nn.Sequential()
@@ -190,27 +201,35 @@ class ProxylessNAS(nn.Module):
             kernel_sizes_per_stage = kernel_sizes[i]
             expansions_per_stage = expansions[i]
             for j, out_channels in enumerate(channels_per_stage):
-                residual = (residuals_per_stage[j] == 1)
-                shortcut = (shortcuts_per_stage[j] == 1)
+                residual = residuals_per_stage[j] == 1
+                shortcut = shortcuts_per_stage[j] == 1
                 kernel_size = kernel_sizes_per_stage[j]
                 expansion = expansions_per_stage[j]
                 stride = 2 if (j == 0) and (i != 0) else 1
-                stage.add_module("unit{}".format(j + 1), ProxylessUnit(
-                    in_channels=in_channels,
-                    out_channels=out_channels,
-                    kernel_size=kernel_size,
-                    stride=stride,
-                    bn_eps=bn_eps,
-                    expansion=expansion,
-                    residual=residual,
-                    shortcut=shortcut))
+                stage.add_module(
+                    "unit{}".format(j + 1),
+                    ProxylessUnit(
+                        in_channels=in_channels,
+                        out_channels=out_channels,
+                        kernel_size=kernel_size,
+                        stride=stride,
+                        bn_eps=bn_eps,
+                        expansion=expansion,
+                        residual=residual,
+                        shortcut=shortcut,
+                    ),
+                )
                 in_channels = out_channels
             self.features.add_module("stage{}".format(i + 1), stage)
-        self.features.add_module("final_block", conv1x1_block(
-            in_channels=in_channels,
-            out_channels=final_block_channels,
-            bn_eps=bn_eps,
-            activation="prelu"))
+        self.features.add_module(
+            "final_block",
+            conv1x1_block(
+                in_channels=in_channels,
+                out_channels=final_block_channels,
+                bn_eps=bn_eps,
+                activation="prelu",
+            ),
+        )
         in_channels = final_block_channels
         """
         self.features.add_module("final_pool", nn.AvgPool2d(
@@ -236,7 +255,7 @@ class ProxylessNAS(nn.Module):
         return x
 
 
-def proxylessnas(input_size, embedding_size=512, version='mobile', **kwargs):
+def proxylessnas(input_size, embedding_size=512, version="mobile", **kwargs):
     """
     Create ProxylessNAS model with specific parameters.
 
@@ -253,41 +272,139 @@ def proxylessnas(input_size, embedding_size=512, version='mobile', **kwargs):
     """
     assert input_size[0] in [112]
     if version == "cpu":
-        residuals = [[1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 0, 0, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1]]
-        channels = [[24], [32, 32, 32, 32], [48, 48, 48, 48], [88, 88, 88, 88, 104, 104, 104, 104],
-                    [216, 216, 216, 216, 360]]
-        kernel_sizes = [[3], [3, 3, 3, 3], [3, 3, 3, 5], [3, 3, 3, 3, 5, 3, 3, 3], [5, 5, 5, 3, 5]]
-        expansions = [[1], [6, 3, 3, 3], [6, 3, 3, 3], [6, 3, 3, 3, 6, 3, 3, 3], [6, 3, 3, 3, 6]]
+        residuals = [
+            [1],
+            [1, 1, 1, 1],
+            [1, 1, 1, 1],
+            [1, 0, 0, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+        ]
+        channels = [
+            [24],
+            [32, 32, 32, 32],
+            [48, 48, 48, 48],
+            [88, 88, 88, 88, 104, 104, 104, 104],
+            [216, 216, 216, 216, 360],
+        ]
+        kernel_sizes = [
+            [3],
+            [3, 3, 3, 3],
+            [3, 3, 3, 5],
+            [3, 3, 3, 3, 5, 3, 3, 3],
+            [5, 5, 5, 3, 5],
+        ]
+        expansions = [
+            [1],
+            [6, 3, 3, 3],
+            [6, 3, 3, 3],
+            [6, 3, 3, 3, 6, 3, 3, 3],
+            [6, 3, 3, 3, 6],
+        ]
         init_block_channels = 40
         final_block_channels = 512
     elif version == "gpu":
-        residuals = [[1], [1, 0, 0, 0], [1, 0, 0, 1], [1, 0, 0, 1, 1, 0, 1, 1], [1, 1, 1, 1, 1]]
-        channels = [[24], [32, 32, 32, 32], [56, 56, 56, 56], [112, 112, 112, 112, 128, 128, 128, 128],
-                    [256, 256, 256, 256, 432]]
-        kernel_sizes = [[3], [5, 3, 3, 3], [7, 3, 3, 3], [7, 5, 5, 5, 5, 3, 3, 5], [7, 7, 7, 5, 7]]
-        expansions = [[1], [3, 3, 3, 3], [3, 3, 3, 3], [6, 3, 3, 3, 6, 3, 3, 3], [6, 6, 6, 6, 6]]
+        residuals = [
+            [1],
+            [1, 0, 0, 0],
+            [1, 0, 0, 1],
+            [1, 0, 0, 1, 1, 0, 1, 1],
+            [1, 1, 1, 1, 1],
+        ]
+        channels = [
+            [24],
+            [32, 32, 32, 32],
+            [56, 56, 56, 56],
+            [112, 112, 112, 112, 128, 128, 128, 128],
+            [256, 256, 256, 256, 432],
+        ]
+        kernel_sizes = [
+            [3],
+            [5, 3, 3, 3],
+            [7, 3, 3, 3],
+            [7, 5, 5, 5, 5, 3, 3, 5],
+            [7, 7, 7, 5, 7],
+        ]
+        expansions = [
+            [1],
+            [3, 3, 3, 3],
+            [3, 3, 3, 3],
+            [6, 3, 3, 3, 6, 3, 3, 3],
+            [6, 6, 6, 6, 6],
+        ]
         init_block_channels = 40
         final_block_channels = 512
     elif version == "mobile":
-        residuals = [[1], [1, 1, 0, 0], [1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1]]
-        channels = [[16], [32, 32, 32, 32], [40, 40, 40, 40], [80, 80, 80, 80, 96, 96, 96, 96],
-                    [192, 192, 192, 192, 320]]
-        kernel_sizes = [[3], [5, 3, 3, 3], [7, 3, 5, 5], [7, 5, 5, 5, 5, 5, 5, 5], [7, 7, 7, 7, 7]]
-        expansions = [[1], [3, 3, 3, 3], [3, 3, 3, 3], [6, 3, 3, 3, 6, 3, 3, 3], [6, 6, 3, 3, 6]]
+        residuals = [
+            [1],
+            [1, 1, 0, 0],
+            [1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+        ]
+        channels = [
+            [16],
+            [32, 32, 32, 32],
+            [40, 40, 40, 40],
+            [80, 80, 80, 80, 96, 96, 96, 96],
+            [192, 192, 192, 192, 320],
+        ]
+        kernel_sizes = [
+            [3],
+            [5, 3, 3, 3],
+            [7, 3, 5, 5],
+            [7, 5, 5, 5, 5, 5, 5, 5],
+            [7, 7, 7, 7, 7],
+        ]
+        expansions = [
+            [1],
+            [3, 3, 3, 3],
+            [3, 3, 3, 3],
+            [6, 3, 3, 3, 6, 3, 3, 3],
+            [6, 6, 3, 3, 6],
+        ]
         init_block_channels = 32
         final_block_channels = 512
     elif version == "mobile14":
-        residuals = [[1], [1, 1, 0, 0], [1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1]]
-        channels = [[24], [40, 40, 40, 40], [56, 56, 56, 56], [112, 112, 112, 112, 136, 136, 136, 136],
-                    [256, 256, 256, 256, 448]]
-        kernel_sizes = [[3], [5, 3, 3, 3], [7, 3, 5, 5], [7, 5, 5, 5, 5, 5, 5, 5], [7, 7, 7, 7, 7]]
-        expansions = [[1], [3, 3, 3, 3], [3, 3, 3, 3], [6, 3, 3, 3, 6, 3, 3, 3], [6, 6, 3, 3, 6]]
+        residuals = [
+            [1],
+            [1, 1, 0, 0],
+            [1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+        ]
+        channels = [
+            [24],
+            [40, 40, 40, 40],
+            [56, 56, 56, 56],
+            [112, 112, 112, 112, 136, 136, 136, 136],
+            [256, 256, 256, 256, 448],
+        ]
+        kernel_sizes = [
+            [3],
+            [5, 3, 3, 3],
+            [7, 3, 5, 5],
+            [7, 5, 5, 5, 5, 5, 5, 5],
+            [7, 7, 7, 7, 7],
+        ]
+        expansions = [
+            [1],
+            [3, 3, 3, 3],
+            [3, 3, 3, 3],
+            [6, 3, 3, 3, 6, 3, 3, 3],
+            [6, 6, 3, 3, 6],
+        ]
         init_block_channels = 48
         final_block_channels = 512
     else:
         raise ValueError("Unsupported ProxylessNAS version: {}".format(version))
 
-    shortcuts = [[0], [0, 1, 1, 1], [0, 1, 1, 1], [0, 1, 1, 1, 0, 1, 1, 1], [0, 1, 1, 1, 0]]
+    shortcuts = [
+        [0],
+        [0, 1, 1, 1],
+        [0, 1, 1, 1],
+        [0, 1, 1, 1, 0, 1, 1, 1],
+        [0, 1, 1, 1, 0],
+    ]
 
     net = ProxylessNAS(
         channels=channels,
@@ -298,10 +415,8 @@ def proxylessnas(input_size, embedding_size=512, version='mobile', **kwargs):
         kernel_sizes=kernel_sizes,
         expansions=expansions,
         embedding_size=512,
-        **kwargs)
-
+        **kwargs
+    )
 
     return net
-
-
 

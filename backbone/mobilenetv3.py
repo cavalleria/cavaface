@@ -12,6 +12,7 @@ import torch.nn as nn
 import math
 from .common import GDC
 
+
 def _make_divisible(v, divisor, min_value=None):
     """
     This function is taken from the original tf repo.
@@ -55,10 +56,10 @@ class SELayer(nn.Module):
         super(SELayer, self).__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
-                nn.Linear(channel, _make_divisible(channel // reduction, 8)),
-                nn.ReLU(inplace=True),
-                nn.Linear(_make_divisible(channel // reduction, 8), channel),
-                h_sigmoid()
+            nn.Linear(channel, _make_divisible(channel // reduction, 8)),
+            nn.ReLU(inplace=True),
+            nn.Linear(_make_divisible(channel // reduction, 8), channel),
+            h_sigmoid(),
         )
 
     def forward(self, x):
@@ -72,15 +73,13 @@ def conv_3x3_bn(inp, oup, stride):
     return nn.Sequential(
         nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
         nn.BatchNorm2d(oup),
-        nn.PReLU(oup)
+        nn.PReLU(oup),
     )
 
 
 def conv_1x1_bn(inp, oup):
     return nn.Sequential(
-        nn.Conv2d(inp, oup, 1, 1, 0, bias=False),
-        nn.BatchNorm2d(oup),
-        nn.PReLU(oup)
+        nn.Conv2d(inp, oup, 1, 1, 0, bias=False), nn.BatchNorm2d(oup), nn.PReLU(oup)
     )
 
 
@@ -94,9 +93,17 @@ class InvertedResidual(nn.Module):
         if inp == hidden_dim:
             self.conv = nn.Sequential(
                 # dw
-                nn.Conv2d(hidden_dim, hidden_dim, kernel_size, stride, (kernel_size - 1) // 2, groups=hidden_dim, bias=False),
+                nn.Conv2d(
+                    hidden_dim,
+                    hidden_dim,
+                    kernel_size,
+                    stride,
+                    (kernel_size - 1) // 2,
+                    groups=hidden_dim,
+                    bias=False,
+                ),
                 nn.BatchNorm2d(hidden_dim),
-                nn.PReLU(hidden_dim), #if use_hs else nn.ReLU(inplace=True),
+                nn.PReLU(hidden_dim),  # if use_hs else nn.ReLU(inplace=True),
                 # Squeeze-and-Excite
                 SELayer(hidden_dim) if use_se else nn.Identity(),
                 # pw-linear
@@ -108,13 +115,21 @@ class InvertedResidual(nn.Module):
                 # pw
                 nn.Conv2d(inp, hidden_dim, 1, 1, 0, bias=False),
                 nn.BatchNorm2d(hidden_dim),
-                nn.PReLU(hidden_dim),# if use_hs else nn.ReLU(inplace=True),
+                nn.PReLU(hidden_dim),  # if use_hs else nn.ReLU(inplace=True),
                 # dw
-                nn.Conv2d(hidden_dim, hidden_dim, kernel_size, stride, (kernel_size - 1) // 2, groups=hidden_dim, bias=False),
+                nn.Conv2d(
+                    hidden_dim,
+                    hidden_dim,
+                    kernel_size,
+                    stride,
+                    (kernel_size - 1) // 2,
+                    groups=hidden_dim,
+                    bias=False,
+                ),
                 nn.BatchNorm2d(hidden_dim),
                 # Squeeze-and-Excite
                 SELayer(hidden_dim) if use_se else nn.Identity(),
-                nn.PReLU(hidden_dim),# if use_hs else nn.ReLU(inplace=True),
+                nn.PReLU(hidden_dim),  # if use_hs else nn.ReLU(inplace=True),
                 # pw-linear
                 nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
                 nn.BatchNorm2d(oup),
@@ -126,45 +141,48 @@ class InvertedResidual(nn.Module):
         else:
             return self.conv(x)
 
+
 large_cfgs = [
-        # k, t, c, SE, HS, s 
-        [3,   1,  16, 0, 0, 1],
-        [3,   4,  24, 0, 0, 2],
-        [3,   3,  24, 0, 0, 1],
-        [5,   3,  40, 1, 0, 2],
-        [5,   3,  40, 1, 0, 1],
-        [5,   3,  40, 1, 0, 1],
-        [3,   6,  80, 0, 1, 2],
-        [3, 2.5,  80, 0, 1, 1],
-        [3, 2.3,  80, 0, 1, 1],
-        [3, 2.3,  80, 0, 1, 1],
-        [3,   6, 112, 1, 1, 1],
-        [3,   6, 112, 1, 1, 1],
-        [5,   6, 160, 1, 1, 2],
-        [5,   6, 160, 1, 1, 1],
-        [5,   6, 160, 1, 1, 1]
-    ]
+    # k, t, c, SE, HS, s
+    [3, 1, 16, 0, 0, 1],
+    [3, 4, 24, 0, 0, 2],
+    [3, 3, 24, 0, 0, 1],
+    [5, 3, 40, 1, 0, 2],
+    [5, 3, 40, 1, 0, 1],
+    [5, 3, 40, 1, 0, 1],
+    [3, 6, 80, 0, 1, 2],
+    [3, 2.5, 80, 0, 1, 1],
+    [3, 2.3, 80, 0, 1, 1],
+    [3, 2.3, 80, 0, 1, 1],
+    [3, 6, 112, 1, 1, 1],
+    [3, 6, 112, 1, 1, 1],
+    [5, 6, 160, 1, 1, 2],
+    [5, 6, 160, 1, 1, 1],
+    [5, 6, 160, 1, 1, 1],
+]
 small_cfgs = [
-        # k, t, c, SE, HS, s 
-        [3,    1,  16, 1, 0, 2],
-        [3,  4.5,  24, 0, 0, 2],
-        [3, 3.67,  24, 0, 0, 1],
-        [5,    4,  40, 1, 1, 2],
-        [5,    6,  40, 1, 1, 1],
-        [5,    6,  40, 1, 1, 1],
-        [5,    3,  48, 1, 1, 1],
-        [5,    3,  48, 1, 1, 1],
-        [5,    6,  96, 1, 1, 2],
-        [5,    6,  96, 1, 1, 1],
-        [5,    6,  96, 1, 1, 1],
-    ]
+    # k, t, c, SE, HS, s
+    [3, 1, 16, 1, 0, 2],
+    [3, 4.5, 24, 0, 0, 2],
+    [3, 3.67, 24, 0, 0, 1],
+    [5, 4, 40, 1, 1, 2],
+    [5, 6, 40, 1, 1, 1],
+    [5, 6, 40, 1, 1, 1],
+    [5, 3, 48, 1, 1, 1],
+    [5, 3, 48, 1, 1, 1],
+    [5, 6, 96, 1, 1, 2],
+    [5, 6, 96, 1, 1, 1],
+    [5, 6, 96, 1, 1, 1],
+]
+
+
 class MobileNetV3(nn.Module):
-    def __init__(self, input_size, embedding_size = 512, width_mult=1.):
+    def __init__(self, input_size, embedding_size=512, width_mult=1.0):
         super(MobileNetV3, self).__init__()
         # setting of inverted residual blocks
         assert input_size[0] in [112]
         self.cfgs = large_cfgs
-    
+
         # building first layer
         input_channel = _make_divisible(16 * width_mult, 8)
         layers = [conv_3x3_bn(3, input_channel, 1)]
@@ -173,14 +191,15 @@ class MobileNetV3(nn.Module):
         for k, t, c, use_se, use_hs, s in self.cfgs:
             output_channel = _make_divisible(c * width_mult, 8)
             exp_size = _make_divisible(input_channel * t, 8)
-            layers.append(block(input_channel, exp_size, output_channel, k, s, use_se, use_hs))
+            layers.append(
+                block(input_channel, exp_size, output_channel, k, s, use_se, use_hs)
+            )
             input_channel = output_channel
         self.features = nn.Sequential(*layers)
 
-        
         # building last several layers
         self.conv = conv_1x1_bn(input_channel, 512)
-        '''
+        """
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         output_channel = {'large': 1280, 'small': 1024}
         output_channel = _make_divisible(output_channel[mode] * width_mult, 8) if width_mult > 1.0 else output_channel[mode]
@@ -190,21 +209,21 @@ class MobileNetV3(nn.Module):
             nn.Dropout(0.2),
             nn.Linear(output_channel, num_classes),
         )
-        '''
+        """
         self.output_layer = GDC(512, embedding_size)
         self._initialize_weights()
 
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
                 if m.bias is not None:
                     m.bias.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
             elif isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
                 if m.bias is not None:
                     m.bias.data.zero_()
 
@@ -213,6 +232,4 @@ class MobileNetV3(nn.Module):
         x = self.conv(x)
         x = self.output_layer(x)
         return x
-
-    
 

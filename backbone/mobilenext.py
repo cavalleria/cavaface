@@ -33,24 +33,42 @@ def _make_divisible(v, divisor, min_value=None):
 
 
 class ConvBNReLU(nn.Sequential):
-    def __init__(self, in_planes, out_planes, kernel_size=3, stride=1, groups=1, norm_layer=None):
+    def __init__(
+        self, in_planes, out_planes, kernel_size=3, stride=1, groups=1, norm_layer=None
+    ):
         padding = (kernel_size - 1) // 2
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         super(ConvBNReLU, self).__init__(
-            nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding, groups=groups, bias=False),
+            nn.Conv2d(
+                in_planes,
+                out_planes,
+                kernel_size,
+                stride,
+                padding,
+                groups=groups,
+                bias=False,
+            ),
             norm_layer(out_planes),
-            nn.PReLU(out_planes) #nn.ReLU6(inplace=True)
+            nn.PReLU(out_planes),  # nn.ReLU6(inplace=True)
         )
 
 
 class SandGlass(nn.Module):
-    def __init__(self, inp, oup, stride, expand_ratio, identity_tensor_multiplier=1.0, norm_layer=None):
+    def __init__(
+        self,
+        inp,
+        oup,
+        stride,
+        expand_ratio,
+        identity_tensor_multiplier=1.0,
+        norm_layer=None,
+    ):
         super(SandGlass, self).__init__()
         self.stride = stride
         assert stride in [1, 2]
-        self.use_identity = False if identity_tensor_multiplier==1.0 else True
-        self.identity_tensor_channels = int(round(inp*identity_tensor_multiplier))
+        self.use_identity = False if identity_tensor_multiplier == 1.0 else True
+        self.identity_tensor_channels = int(round(inp * identity_tensor_multiplier))
 
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
@@ -60,28 +78,65 @@ class SandGlass(nn.Module):
 
         layers = []
         # dw
-        layers.append(ConvBNReLU(inp, inp, kernel_size=3, stride=1, groups=inp, norm_layer=norm_layer))
+        layers.append(
+            ConvBNReLU(
+                inp, inp, kernel_size=3, stride=1, groups=inp, norm_layer=norm_layer
+            )
+        )
         if expand_ratio != 1:
             # pw-linear
-            layers.extend([
-                nn.Conv2d(inp, hidden_dim, kernel_size=1, stride=1, padding=0, groups=1, bias=False),
-                norm_layer(hidden_dim),
-            ])
-        layers.extend([
-            # pw
-            ConvBNReLU(hidden_dim, oup, kernel_size=1, stride=1, groups=1, norm_layer=norm_layer),
-            # dw-linear
-            nn.Conv2d(oup, oup, kernel_size=3, stride=stride, groups=oup, padding=1, bias=False),
-            norm_layer(oup),
-        ])
+            layers.extend(
+                [
+                    nn.Conv2d(
+                        inp,
+                        hidden_dim,
+                        kernel_size=1,
+                        stride=1,
+                        padding=0,
+                        groups=1,
+                        bias=False,
+                    ),
+                    norm_layer(hidden_dim),
+                ]
+            )
+        layers.extend(
+            [
+                # pw
+                ConvBNReLU(
+                    hidden_dim,
+                    oup,
+                    kernel_size=1,
+                    stride=1,
+                    groups=1,
+                    norm_layer=norm_layer,
+                ),
+                # dw-linear
+                nn.Conv2d(
+                    oup,
+                    oup,
+                    kernel_size=3,
+                    stride=stride,
+                    groups=oup,
+                    padding=1,
+                    bias=False,
+                ),
+                norm_layer(oup),
+            ]
+        )
         self.conv = nn.Sequential(*layers)
 
     def forward(self, x):
         out = self.conv(x)
         if self.use_res_connect:
             if self.use_identity:
-                identity_tensor= x[:,:self.identity_tensor_channels,:,:] + out[:,:self.identity_tensor_channels,:,:]
-                out = torch.cat([identity_tensor, out[:,self.identity_tensor_channels:,:,:]], dim=1)
+                identity_tensor = (
+                    x[:, : self.identity_tensor_channels, :, :]
+                    + out[:, : self.identity_tensor_channels, :, :]
+                )
+                out = torch.cat(
+                    [identity_tensor, out[:, self.identity_tensor_channels :, :, :]],
+                    dim=1,
+                )
                 # out[:,:self.identity_tensor_channels,:,:] += x[:,:self.identity_tensor_channels,:,:]
             else:
                 out = x + out
@@ -91,13 +146,17 @@ class SandGlass(nn.Module):
 
 
 class MobileNeXt(nn.Module):
-    def __init__(self,
-                input_size, embedding_size = 512, 
-                width_mult=1.0, identity_tensor_multiplier=1.0,
-                sand_glass_setting=None,
-                round_nearest=8,
-                block=None,
-                norm_layer=None):
+    def __init__(
+        self,
+        input_size,
+        embedding_size=512,
+        width_mult=1.0,
+        identity_tensor_multiplier=1.0,
+        sand_glass_setting=None,
+        round_nearest=8,
+        block=None,
+        norm_layer=None,
+    ):
         """
         MobileNeXt main class
         Args:
@@ -122,7 +181,7 @@ class MobileNeXt(nn.Module):
         if sand_glass_setting is None:
             sand_glass_setting = [
                 # t, c,  b, s
-                #[2, 96,  1, 2],
+                # [2, 96,  1, 2],
                 [6, 144, 1, 1],
                 [6, 192, 3, 2],
                 [6, 288, 3, 2],
@@ -134,19 +193,32 @@ class MobileNeXt(nn.Module):
 
         # only check the first element, assuming user knows t,c,n,s are required
         if len(sand_glass_setting) == 0 or len(sand_glass_setting[0]) != 4:
-            raise ValueError("sand_glass_setting should be non-empty "
-                             "or a 4-element list, got {}".format(sand_glass_setting))
+            raise ValueError(
+                "sand_glass_setting should be non-empty "
+                "or a 4-element list, got {}".format(sand_glass_setting)
+            )
 
         # building first layer
         input_channel = _make_divisible(input_channel * width_mult, round_nearest)
-        self.last_channel = _make_divisible(last_channel * max(1.0, width_mult), round_nearest)
+        self.last_channel = _make_divisible(
+            last_channel * max(1.0, width_mult), round_nearest
+        )
         features = [ConvBNReLU(3, input_channel, stride=2, norm_layer=norm_layer)]
         # building sand glass blocks
         for t, c, b, s in sand_glass_setting:
             output_channel = _make_divisible(c * width_mult, round_nearest)
             for i in range(b):
                 stride = s if i == 0 else 1
-                features.append(block(input_channel, output_channel, stride, expand_ratio=t, identity_tensor_multiplier=identity_tensor_multiplier, norm_layer=norm_layer))
+                features.append(
+                    block(
+                        input_channel,
+                        output_channel,
+                        stride,
+                        expand_ratio=t,
+                        identity_tensor_multiplier=identity_tensor_multiplier,
+                        norm_layer=norm_layer,
+                    )
+                )
                 input_channel = output_channel
 
         # make it nn.Sequential
@@ -154,19 +226,18 @@ class MobileNeXt(nn.Module):
 
         # building classifier
         self.output_layer = GDC(512, embedding_size)
-        
 
         # weight initialization
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out')
+                nn.init.kaiming_normal_(m.weight, mode="fan_out")
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
                 nn.init.ones_(m.weight)
                 nn.init.zeros_(m.bias)
             elif isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
                 if m.bias is not None:
                     m.bias.data.zero_()
 

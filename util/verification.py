@@ -35,16 +35,18 @@ from sklearn.decomposition import PCA
 from sklearn.model_selection import KFold
 
 
-def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_folds = 10, pca = 0):
-    assert (embeddings1.shape[0] == embeddings2.shape[0])
-    assert (embeddings1.shape[1] == embeddings2.shape[1])
+def calculate_roc(
+    thresholds, embeddings1, embeddings2, actual_issame, nrof_folds=10, pca=0
+):
+    assert embeddings1.shape[0] == embeddings2.shape[0]
+    assert embeddings1.shape[1] == embeddings2.shape[1]
     nrof_pairs = min(len(actual_issame), embeddings1.shape[0])
     nrof_thresholds = len(thresholds)
-    k_fold = KFold(n_splits = nrof_folds, shuffle = False)
+    k_fold = KFold(n_splits=nrof_folds, shuffle=False)
 
     tprs = np.zeros((nrof_folds, nrof_thresholds))
     fprs = np.zeros((nrof_folds, nrof_thresholds))
-    
+
     accuracy = np.zeros((nrof_folds))
     best_thresholds = np.zeros((nrof_folds))
     indices = np.arange(nrof_pairs)
@@ -62,9 +64,9 @@ def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_fold
             print("doing pca on", fold_idx)
             embed1_train = embeddings1[train_set]
             embed2_train = embeddings2[train_set]
-            _embed_train = np.concatenate((embed1_train, embed2_train), axis = 0)
+            _embed_train = np.concatenate((embed1_train, embed2_train), axis=0)
             # print(_embed_train.shape)
-            pca_model = PCA(n_components = pca)
+            pca_model = PCA(n_components=pca)
             pca_model.fit(_embed_train)
             embed1 = pca_model.transform(embeddings1)
             embed2 = pca_model.transform(embeddings2)
@@ -77,31 +79,37 @@ def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_fold
         # Find the best threshold for the fold
         acc_train = np.zeros((nrof_thresholds))
         for threshold_idx, threshold in enumerate(thresholds):
-            _, _, acc_train[threshold_idx] = calculate_accuracy(threshold, dist[train_set], actual_issame[train_set])
+            _, _, acc_train[threshold_idx] = calculate_accuracy(
+                threshold, dist[train_set], actual_issame[train_set]
+            )
         best_threshold_index = np.argmax(acc_train)
-#         print('best_threshold_index', best_threshold_index, acc_train[best_threshold_index])
+        #         print('best_threshold_index', best_threshold_index, acc_train[best_threshold_index])
         best_thresholds[fold_idx] = thresholds[best_threshold_index]
         for threshold_idx, threshold in enumerate(thresholds):
-            tprs[fold_idx, threshold_idx], fprs[fold_idx, threshold_idx], _ = calculate_accuracy(threshold,
-                                                                                                 dist[test_set],
-                                                                                                 actual_issame[
-                                                                                                     test_set])
-        _, _, accuracy[fold_idx] = calculate_accuracy(thresholds[best_threshold_index], dist[test_set], actual_issame[test_set])
+            (
+                tprs[fold_idx, threshold_idx],
+                fprs[fold_idx, threshold_idx],
+                _,
+            ) = calculate_accuracy(threshold, dist[test_set], actual_issame[test_set])
+        _, _, accuracy[fold_idx] = calculate_accuracy(
+            thresholds[best_threshold_index], dist[test_set], actual_issame[test_set]
+        )
         for i in test_set:
-             if actual_issame[i] == True and dist[i] > thresholds[best_threshold_index]:
+            if actual_issame[i] == True and dist[i] > thresholds[best_threshold_index]:
                 bad_case.append(i)
 
     tpr = np.mean(tprs, 0)
     fpr = np.mean(fprs, 0)
     return tpr, fpr, accuracy, best_thresholds, bad_case
-    
 
 
 def calculate_accuracy(threshold, dist, actual_issame):
     predict_issame = np.less(dist, threshold)
     tp = np.sum(np.logical_and(predict_issame, actual_issame))
     fp = np.sum(np.logical_and(predict_issame, np.logical_not(actual_issame)))
-    tn = np.sum(np.logical_and(np.logical_not(predict_issame), np.logical_not(actual_issame)))
+    tn = np.sum(
+        np.logical_and(np.logical_not(predict_issame), np.logical_not(actual_issame))
+    )
     fn = np.sum(np.logical_and(np.logical_not(predict_issame), actual_issame))
 
     tpr = 0 if (tp + fn == 0) else float(tp) / float(tp + fn)
@@ -110,8 +118,10 @@ def calculate_accuracy(threshold, dist, actual_issame):
     return tpr, fpr, acc
 
 
-def calculate_val(thresholds, embeddings1, embeddings2, actual_issame, far_target, nrof_folds = 10):
-    '''
+def calculate_val(
+    thresholds, embeddings1, embeddings2, actual_issame, far_target, nrof_folds=10
+):
+    """
     Copy from [insightface](https://github.com/deepinsight/insightface)
     :param thresholds:
     :param embeddings1:
@@ -120,12 +130,12 @@ def calculate_val(thresholds, embeddings1, embeddings2, actual_issame, far_targe
     :param far_target:
     :param nrof_folds:
     :return:
-    '''
-    assert (embeddings1.shape[0] == embeddings2.shape[0])
-    assert (embeddings1.shape[1] == embeddings2.shape[1])
+    """
+    assert embeddings1.shape[0] == embeddings2.shape[0]
+    assert embeddings1.shape[1] == embeddings2.shape[1]
     nrof_pairs = min(len(actual_issame), embeddings1.shape[0])
     nrof_thresholds = len(thresholds)
-    k_fold = KFold(n_splits = nrof_folds, shuffle = False)
+    k_fold = KFold(n_splits=nrof_folds, shuffle=False)
 
     val = np.zeros(nrof_folds)
     far = np.zeros(nrof_folds)
@@ -139,14 +149,18 @@ def calculate_val(thresholds, embeddings1, embeddings2, actual_issame, far_targe
         # Find the threshold that gives FAR = far_target
         far_train = np.zeros(nrof_thresholds)
         for threshold_idx, threshold in enumerate(thresholds):
-            _, far_train[threshold_idx] = calculate_val_far(threshold, dist[train_set], actual_issame[train_set])
+            _, far_train[threshold_idx] = calculate_val_far(
+                threshold, dist[train_set], actual_issame[train_set]
+            )
         if np.max(far_train) >= far_target:
-            f = interpolate.interp1d(far_train, thresholds, kind = 'slinear')
+            f = interpolate.interp1d(far_train, thresholds, kind="slinear")
             threshold = f(far_target)
         else:
             threshold = 0.0
 
-        val[fold_idx], far[fold_idx] = calculate_val_far(threshold, dist[test_set], actual_issame[test_set])
+        val[fold_idx], far[fold_idx] = calculate_val_far(
+            threshold, dist[test_set], actual_issame[test_set]
+        )
 
     val_mean = np.mean(val)
     far_mean = np.mean(far)
@@ -164,46 +178,65 @@ def calculate_val_far(threshold, dist, actual_issame):
     far = float(false_accept) / float(n_diff)
     return val, far
 
-def evaluate_with_uncertainty(embeddings, uncertaintys, actual_issame, nrof_folds = 10, mls=True):
+
+def evaluate_with_uncertainty(
+    embeddings, uncertaintys, actual_issame, nrof_folds=10, mls=True
+):
     # Calculate evaluation metrics
     embeddings1 = embeddings[0::2]
     uncertainty1 = uncertaintys[0::2]
     embeddings2 = embeddings[1::2]
     uncertainty2 = uncertaintys[1::2]
-    accuracy, best_thresholds = calculate_roc_with_uncertainty(embeddings1, embeddings2, uncertainty1, uncertainty2,  np.asarray(actual_issame), nrof_folds = nrof_folds,  mls=mls)
+    accuracy, best_thresholds = calculate_roc_with_uncertainty(
+        embeddings1,
+        embeddings2,
+        uncertainty1,
+        uncertainty2,
+        np.asarray(actual_issame),
+        nrof_folds=nrof_folds,
+        mls=mls,
+    )
     return accuracy, best_thresholds
 
-def evaluate(embeddings, actual_issame, nrof_folds = 10, pca = 0):
+
+def evaluate(embeddings, actual_issame, nrof_folds=10, pca=0):
     # Calculate evaluation metrics
     thresholds = np.arange(0, 4, 0.01)
     embeddings1 = embeddings[0::2]
     embeddings2 = embeddings[1::2]
-    tpr, fpr, accuracy, best_thresholds, bad_case = calculate_roc(thresholds, embeddings1, embeddings2, np.asarray(actual_issame), 
-                                               nrof_folds = nrof_folds, pca = pca)
-#     thresholds = np.arange(0, 4, 0.001)
-#     val, val_std, far = calculate_val(thresholds, embeddings1, embeddings2,
-#                                       np.asarray(actual_issame), 1e-3, nrof_folds=nrof_folds)
-#     return tpr, fpr, accuracy, best_thresholds, val, val_std, far
-  
+    tpr, fpr, accuracy, best_thresholds, bad_case = calculate_roc(
+        thresholds,
+        embeddings1,
+        embeddings2,
+        np.asarray(actual_issame),
+        nrof_folds=nrof_folds,
+        pca=pca,
+    )
+    #     thresholds = np.arange(0, 4, 0.001)
+    #     val, val_std, far = calculate_val(thresholds, embeddings1, embeddings2,
+    #                                       np.asarray(actual_issame), 1e-3, nrof_folds=nrof_folds)
+    #     return tpr, fpr, accuracy, best_thresholds, val, val_std, far
+
     return tpr, fpr, accuracy, best_thresholds, bad_case
 
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self):
         self.reset()
 
     def reset(self):
-        self.val   = 0
-        self.avg   = 0
-        self.sum   = 0
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
         self.count = 0
 
-    def update(self, val, n = 1):
-        self.val   = val
-        self.sum   += val * n
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
         self.count += n
-        self.avg   = self.sum / self.count
+        self.avg = self.sum / self.count
 
 
 def accuracy(output, target, topk=(1,)):
@@ -212,7 +245,7 @@ def accuracy(output, target, topk=(1,)):
     batch_size = target.size(0)
 
     _, pred = output.topk(maxk, 1, True, True)
-    pred    = pred.t()
+    pred = pred.t()
     correct = pred.eq(target.view(1, -1).expand_as(pred))
 
     res = []
@@ -221,6 +254,7 @@ def accuracy(output, target, topk=(1,)):
         res.append(correct_k.mul_(100.0 / batch_size))
 
     return res
+
 
 def get_val_dataset(data_dir, val_set_name):
     ver_list = []
@@ -233,23 +267,25 @@ def get_val_dataset(data_dir, val_set_name):
             ver_name_list.append(name)
     return (ver_list, ver_name_list)
 
+
 def ver_test(ver_dataset, backbone):
     results = []
     _, _, acc2, std2, xnorm, _ = test(ver_dataset, backbone, 10, 10)
-        
+
     results.append(acc2)
     results.append(std2)
     results.append(xnorm)
     return results
-  
+
+
 @torch.no_grad()
 def load_bin(path, image_size=(112, 112)):
     try:
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             bins, issame_list = pickle.load(f)  # py2
     except UnicodeDecodeError as e:
-        with open(path, 'rb') as f:
-            bins, issame_list = pickle.load(f, encoding='bytes')  # py3
+        with open(path, "rb") as f:
+            bins, issame_list = pickle.load(f, encoding="bytes")  # py3
     data_list = []
     for flip in [0, 1]:
         data = torch.empty((len(issame_list) * 2, 3, image_size[0], image_size[1]))
@@ -265,13 +301,14 @@ def load_bin(path, image_size=(112, 112)):
                 img = mx.ndarray.flip(data=img, axis=2)
             data_list[flip][idx][:] = torch.from_numpy(img.asnumpy())
         if idx % 1000 == 0:
-            print('loading bin', idx)
+            print("loading bin", idx)
     print(data_list[0].shape)
     return data_list, issame_list
 
+
 @torch.no_grad()
 def test(data_set, backbone, batch_size, nfolds=10):
-    print('testing verification..')
+    print("testing verification..")
     data_list = data_set[0]
     issame_list = data_set[1]
     embeddings_list = []
@@ -283,7 +320,7 @@ def test(data_set, backbone, batch_size, nfolds=10):
         while ba < data.shape[0]:
             bb = min(ba + batch_size, data.shape[0])
             count = bb - ba
-            _data = data[bb - batch_size: bb]
+            _data = data[bb - batch_size : bb]
             time0 = datetime.datetime.now()
             img = ((_data / 255) - 0.5) / 0.5
             net_out = backbone(img)
@@ -293,7 +330,7 @@ def test(data_set, backbone, batch_size, nfolds=10):
             time_consumed += diff.total_seconds()
             if embeddings is None:
                 embeddings = np.zeros((data.shape[0], _embeddings.shape[1]))
-            embeddings[ba:bb, :] = _embeddings[(batch_size - count):, :]
+            embeddings[ba:bb, :] = _embeddings[(batch_size - count) :, :]
             ba = bb
         embeddings_list.append(embeddings)
 
@@ -314,8 +351,10 @@ def test(data_set, backbone, batch_size, nfolds=10):
     embeddings = embeddings_list[0] + embeddings_list[1]
     embeddings = sklearn.preprocessing.normalize(embeddings)
     print(embeddings.shape)
-    print('infer time', time_consumed)
-    _, _, accuracy, val, val_std, far = evaluate(embeddings, issame_list, nrof_folds=nfolds)
+    print("infer time", time_consumed)
+    _, _, accuracy, val, val_std, far = evaluate(
+        embeddings, issame_list, nrof_folds=nfolds
+    )
     acc2, std2 = np.mean(accuracy), np.std(accuracy)
-    
+
     return acc1, std1, acc2, std2, _xnorm, embeddings_list

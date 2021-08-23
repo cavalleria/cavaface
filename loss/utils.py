@@ -1,8 +1,8 @@
-
 import torch
 import numpy as np
 import numbers
 from torch.nn import functional as F
+
 
 @torch.no_grad()
 def smooth_one_hot(true_labels, classes, smoothing=0.0):

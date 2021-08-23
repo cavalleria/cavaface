@@ -15,13 +15,18 @@ import math
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
-from .common import GDC, round_channels, conv1x1_block, conv3x3_block, dwconv3x3_block, dwconv5x5_block, SEBlock
+from .common import (
+    GDC,
+    round_channels,
+    conv1x1_block,
+    conv3x3_block,
+    dwconv3x3_block,
+    dwconv5x5_block,
+    SEBlock,
+)
 
 
-def calc_tf_padding(x,
-                    kernel_size,
-                    stride=1,
-                    dilation=1):
+def calc_tf_padding(x, kernel_size, stride=1, dilation=1):
     """
     Calculate TF-same like padding size.
 
@@ -69,13 +74,8 @@ class EffiDwsConvUnit(nn.Module):
     tf_mode : bool
         Whether to use TF-like mode.
     """
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 stride,
-                 bn_eps,
-                 activation,
-                 tf_mode):
+
+    def __init__(self, in_channels, out_channels, stride, bn_eps, activation, tf_mode):
         super(EffiDwsConvUnit, self).__init__()
         self.tf_mode = tf_mode
         self.residual = (in_channels == out_channels) and (stride == 1)
@@ -85,16 +85,15 @@ class EffiDwsConvUnit(nn.Module):
             out_channels=in_channels,
             padding=(0 if tf_mode else 1),
             bn_eps=bn_eps,
-            activation=activation)
-        self.se = SEBlock(
-            channels=in_channels,
-            reduction=4,
-            mid_activation=activation)
+            activation=activation,
+        )
+        self.se = SEBlock(channels=in_channels, reduction=4, mid_activation=activation)
         self.pw_conv = conv1x1_block(
             in_channels=in_channels,
             out_channels=out_channels,
             bn_eps=bn_eps,
-            activation=None)
+            activation=None,
+        )
 
     def forward(self, x):
         if self.residual:
@@ -134,16 +133,19 @@ class EffiInvResUnit(nn.Module):
     tf_mode : bool
         Whether to use TF-like mode.
     """
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 kernel_size,
-                 stride,
-                 exp_factor,
-                 se_factor,
-                 bn_eps,
-                 activation,
-                 tf_mode):
+
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+        stride,
+        exp_factor,
+        se_factor,
+        bn_eps,
+        activation,
+        tf_mode,
+    ):
         super(EffiInvResUnit, self).__init__()
         self.kernel_size = kernel_size
         self.stride = stride
@@ -151,37 +153,50 @@ class EffiInvResUnit(nn.Module):
         self.residual = (in_channels == out_channels) and (stride == 1)
         self.use_se = se_factor > 0
         mid_channels = in_channels * exp_factor
-        dwconv_block_fn = dwconv3x3_block if kernel_size == 3 else (dwconv5x5_block if kernel_size == 5 else None)
+        dwconv_block_fn = (
+            dwconv3x3_block
+            if kernel_size == 3
+            else (dwconv5x5_block if kernel_size == 5 else None)
+        )
 
         self.conv1 = conv1x1_block(
             in_channels=in_channels,
             out_channels=mid_channels,
             bn_eps=bn_eps,
-            activation=activation)
+            activation=activation,
+        )
         self.conv2 = dwconv_block_fn(
             in_channels=mid_channels,
             out_channels=mid_channels,
             stride=stride,
             padding=(0 if tf_mode else (kernel_size // 2)),
             bn_eps=bn_eps,
-            activation=activation)
+            activation=activation,
+        )
         if self.use_se:
             self.se = SEBlock(
                 channels=mid_channels,
                 reduction=(exp_factor * se_factor),
-                mid_activation=activation)
+                mid_activation=activation,
+            )
         self.conv3 = conv1x1_block(
             in_channels=mid_channels,
             out_channels=out_channels,
             bn_eps=bn_eps,
-            activation=None)
+            activation=None,
+        )
 
     def forward(self, x):
         if self.residual:
             identity = x
         x = self.conv1(x)
         if self.tf_mode:
-            x = F.pad(x, pad=calc_tf_padding(x, kernel_size=self.kernel_size, stride=self.stride))
+            x = F.pad(
+                x,
+                pad=calc_tf_padding(
+                    x, kernel_size=self.kernel_size, stride=self.stride
+                ),
+            )
         x = self.conv2(x)
         if self.use_se:
             x = self.se(x)
@@ -209,12 +224,7 @@ class EffiInitBlock(nn.Module):
         Whether to use TF-like mode.
     """
 
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 bn_eps,
-                 activation,
-                 tf_mode):
+    def __init__(self, in_channels, out_channels, bn_eps, activation, tf_mode):
         super(EffiInitBlock, self).__init__()
         self.tf_mode = tf_mode
 
@@ -224,7 +234,8 @@ class EffiInitBlock(nn.Module):
             stride=1,
             padding=(0 if tf_mode else 1),
             bn_eps=bn_eps,
-            activation=activation)
+            activation=activation,
+        )
 
     def forward(self, x):
         if self.tf_mode:
@@ -265,30 +276,37 @@ class EfficientNet(nn.Module):
     num_classes : int, default 1000
         Number of classification classes.
     """
-    def __init__(self,
-                 channels,
-                 init_block_channels,
-                 final_block_channels,
-                 kernel_sizes,
-                 strides_per_stage,
-                 expansion_factors,
-                 dropout_rate=0.2,
-                 tf_mode=False,
-                 bn_eps=1e-5,
-                 in_channels=3,
-                 in_size=(112, 112),
-                 embedding_size=512):
+
+    def __init__(
+        self,
+        channels,
+        init_block_channels,
+        final_block_channels,
+        kernel_sizes,
+        strides_per_stage,
+        expansion_factors,
+        dropout_rate=0.2,
+        tf_mode=False,
+        bn_eps=1e-5,
+        in_channels=3,
+        in_size=(112, 112),
+        embedding_size=512,
+    ):
         super(EfficientNet, self).__init__()
         self.in_size = in_size
         activation = "prelu"
 
         self.features = nn.Sequential()
-        self.features.add_module("init_block", EffiInitBlock(
-            in_channels=in_channels,
-            out_channels=init_block_channels,
-            bn_eps=bn_eps,
-            activation=activation,
-            tf_mode=tf_mode))
+        self.features.add_module(
+            "init_block",
+            EffiInitBlock(
+                in_channels=in_channels,
+                out_channels=init_block_channels,
+                bn_eps=bn_eps,
+                activation=activation,
+                tf_mode=tf_mode,
+            ),
+        )
         in_channels = init_block_channels
         for i, channels_per_stage in enumerate(channels):
             kernel_sizes_per_stage = kernel_sizes[i]
@@ -299,42 +317,54 @@ class EfficientNet(nn.Module):
                 expansion_factor = expansion_factors_per_stage[j]
                 stride = strides_per_stage[i] if (j == 0) else 1
                 if i == 0:
-                    stage.add_module("unit{}".format(j + 1), EffiDwsConvUnit(
-                        in_channels=in_channels,
-                        out_channels=out_channels,
-                        stride=stride,
-                        bn_eps=bn_eps,
-                        activation=activation,
-                        tf_mode=tf_mode))
+                    stage.add_module(
+                        "unit{}".format(j + 1),
+                        EffiDwsConvUnit(
+                            in_channels=in_channels,
+                            out_channels=out_channels,
+                            stride=stride,
+                            bn_eps=bn_eps,
+                            activation=activation,
+                            tf_mode=tf_mode,
+                        ),
+                    )
                 else:
-                    stage.add_module("unit{}".format(j + 1), EffiInvResUnit(
-                        in_channels=in_channels,
-                        out_channels=out_channels,
-                        kernel_size=kernel_size,
-                        stride=stride,
-                        exp_factor=expansion_factor,
-                        se_factor=4,
-                        bn_eps=bn_eps,
-                        activation=activation,
-                        tf_mode=tf_mode))
+                    stage.add_module(
+                        "unit{}".format(j + 1),
+                        EffiInvResUnit(
+                            in_channels=in_channels,
+                            out_channels=out_channels,
+                            kernel_size=kernel_size,
+                            stride=stride,
+                            exp_factor=expansion_factor,
+                            se_factor=4,
+                            bn_eps=bn_eps,
+                            activation=activation,
+                            tf_mode=tf_mode,
+                        ),
+                    )
                 in_channels = out_channels
             self.features.add_module("stage{}".format(i + 1), stage)
-        self.features.add_module("final_block", conv1x1_block(
-            in_channels=in_channels,
-            out_channels=final_block_channels,
-            bn_eps=bn_eps,
-            activation=activation))
+        self.features.add_module(
+            "final_block",
+            conv1x1_block(
+                in_channels=in_channels,
+                out_channels=final_block_channels,
+                bn_eps=bn_eps,
+                activation=activation,
+            ),
+        )
         in_channels = final_block_channels
-        #self.features.add_module("final_pool", nn.AdaptiveAvgPool2d(output_size=1))
+        # self.features.add_module("final_pool", nn.AdaptiveAvgPool2d(output_size=1))
 
-        '''
+        """
         self.output = nn.Sequential()
         if dropout_rate > 0.0:
             self.output.add_module("dropout", nn.Dropout(p=dropout_rate))
         self.output.add_module("fc", nn.Linear(
             in_features=in_channels,
             out_features=num_classes))
-        '''
+        """
         self.output = GDC(512, embedding_size)
         self._init_params()
 
@@ -347,17 +377,17 @@ class EfficientNet(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        #x = x.view(x.size(0), -1)
+        # x = x.view(x.size(0), -1)
         x = self.output(x)
         return x
 
 
-def efficientnet(input_size, embedding_size=512, version='b1', **kwargs):
+def efficientnet(input_size, embedding_size=512, version="b1", **kwargs):
     """
     Create EfficientNet model with specific parameters.
     """
     assert input_size[0] in [112]
-    if version.endswith('b') or version.endswith('c'):
+    if version.endswith("b") or version.endswith("c"):
         version = version[:-1]
         tf_mode = True
         bn_eps = 1e-3
@@ -419,26 +449,51 @@ def efficientnet(input_size, embedding_size=512, version='b1', **kwargs):
     expansion_factors_per_layers = [1, 6, 6, 6, 6, 6, 6]
     kernel_sizes_per_layers = [3, 3, 5, 3, 5, 5, 3]
     strides_per_stage = [1, 2, 2, 2, 1, 2, 1]
-    final_block_channels = 512 # 1280
+    final_block_channels = 512  # 1280
 
     layers = [int(math.ceil(li * depth_factor)) for li in layers]
-    channels_per_layers = [round_channels(ci * width_factor) for ci in channels_per_layers]
+    channels_per_layers = [
+        round_channels(ci * width_factor) for ci in channels_per_layers
+    ]
 
     from functools import reduce
-    channels = reduce(lambda x, y: x + [[y[0]] * y[1]] if y[2] != 0 else x[:-1] + [x[-1] + [y[0]] * y[1]],
-                      zip(channels_per_layers, layers, downsample), [])
-    kernel_sizes = reduce(lambda x, y: x + [[y[0]] * y[1]] if y[2] != 0 else x[:-1] + [x[-1] + [y[0]] * y[1]],
-                          zip(kernel_sizes_per_layers, layers, downsample), [])
-    expansion_factors = reduce(lambda x, y: x + [[y[0]] * y[1]] if y[2] != 0 else x[:-1] + [x[-1] + [y[0]] * y[1]],
-                               zip(expansion_factors_per_layers, layers, downsample), [])
-    strides_per_stage = reduce(lambda x, y: x + [[y[0]] * y[1]] if y[2] != 0 else x[:-1] + [x[-1] + [y[0]] * y[1]],
-                               zip(strides_per_stage, layers, downsample), [])
+
+    channels = reduce(
+        lambda x, y: x + [[y[0]] * y[1]]
+        if y[2] != 0
+        else x[:-1] + [x[-1] + [y[0]] * y[1]],
+        zip(channels_per_layers, layers, downsample),
+        [],
+    )
+    kernel_sizes = reduce(
+        lambda x, y: x + [[y[0]] * y[1]]
+        if y[2] != 0
+        else x[:-1] + [x[-1] + [y[0]] * y[1]],
+        zip(kernel_sizes_per_layers, layers, downsample),
+        [],
+    )
+    expansion_factors = reduce(
+        lambda x, y: x + [[y[0]] * y[1]]
+        if y[2] != 0
+        else x[:-1] + [x[-1] + [y[0]] * y[1]],
+        zip(expansion_factors_per_layers, layers, downsample),
+        [],
+    )
+    strides_per_stage = reduce(
+        lambda x, y: x + [[y[0]] * y[1]]
+        if y[2] != 0
+        else x[:-1] + [x[-1] + [y[0]] * y[1]],
+        zip(strides_per_stage, layers, downsample),
+        [],
+    )
     strides_per_stage = [si[0] for si in strides_per_stage]
 
     init_block_channels = round_channels(init_block_channels * width_factor)
 
     if width_factor > 1.0:
-        assert (int(final_block_channels * width_factor) == round_channels(final_block_channels * width_factor))
+        assert int(final_block_channels * width_factor) == round_channels(
+            final_block_channels * width_factor
+        )
         final_block_channels = round_channels(final_block_channels * width_factor)
 
     net = EfficientNet(
@@ -453,6 +508,7 @@ def efficientnet(input_size, embedding_size=512, version='b1', **kwargs):
         bn_eps=bn_eps,
         in_size=in_size,
         embedding_size=embedding_size,
-        **kwargs)
+        **kwargs
+    )
 
     return net

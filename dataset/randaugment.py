@@ -117,7 +117,7 @@ def Sharpness(img, v):  # [0.1,1.9]
 
 def Cutout(img, v):  # [0, 60] => percentage: [0, 0.2]
     assert 0.0 <= v <= 0.2
-    if v <= 0.:
+    if v <= 0.0:
         return img
 
     v = v * img.size[0]
@@ -132,8 +132,8 @@ def CutoutAbs(img, v):  # [0, 60] => percentage: [0, 0.2]
     x0 = np.random.uniform(w)
     y0 = np.random.uniform(h)
 
-    x0 = int(max(0, x0 - v / 2.))
-    y0 = int(max(0, y0 - v / 2.))
+    x0 = int(max(0, x0 - v / 2.0))
+    y0 = int(max(0, y0 - v / 2.0))
     x1 = min(w, x0 + v)
     y1 = min(h, y0 + v)
 
@@ -143,6 +143,7 @@ def CutoutAbs(img, v):  # [0, 60] => percentage: [0, 0.2]
     img = img.copy()
     PIL.ImageDraw.Draw(img).rectangle(xy, color)
     return img
+
 
 def Identity(img, v):
     return img
@@ -154,7 +155,7 @@ def augment_list():  # 16 oeprations and their ranges
         (AutoContrast, 0, 1),
         (Equalize, 0, 1),
         (Invert, 0, 1),
-        #(Rotate, 0, 30),
+        # (Rotate, 0, 30),
         (Posterize, 0, 4),
         (Solarize, 0, 256),
         (SolarizeAdd, 0, 110),
@@ -162,18 +163,19 @@ def augment_list():  # 16 oeprations and their ranges
         (Contrast, 0.1, 1.9),
         (Brightness, 0.1, 1.9),
         (Sharpness, 0.1, 1.9),
-        #(ShearX, 0., 0.3),
-        #(ShearY, 0., 0.3),
+        # (ShearX, 0., 0.3),
+        # (ShearY, 0., 0.3),
         (CutoutAbs, 0, 40),
-        #(TranslateXabs, 0., 100),
-        #(TranslateYabs, 0., 100),
+        # (TranslateXabs, 0., 100),
+        # (TranslateYabs, 0., 100),
     ]
     return l
+
 
 class RandAugment:
     def __init__(self, n=2, m=9):
         self.n = n
-        self.m = m      # [0, 30]
+        self.m = m  # [0, 30]
         self.augment_list = augment_list()
 
     def __call__(self, img):

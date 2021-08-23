@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ['CosineWarmupLR']
+__all__ = ["CosineWarmupLR"]
 
 from math import pi, cos
 from torch.optim.optimizer import Optimizer
@@ -33,21 +33,31 @@ class CosineWarmupLR(object):
 
     """
 
-    def __init__(self, optimizer, batches, epochs, base_lr,
-                 target_lr=0, warmup_epochs=0, warmup_lr=0, last_iter=-1):
+    def __init__(
+        self,
+        optimizer,
+        batches,
+        epochs,
+        base_lr,
+        target_lr=0,
+        warmup_epochs=0,
+        warmup_lr=0,
+        last_iter=-1,
+    ):
         if not isinstance(optimizer, Optimizer):
-            raise TypeError('{} is not an Optimizer'.format(
-                type(optimizer).__name__))
+            raise TypeError("{} is not an Optimizer".format(type(optimizer).__name__))
         self.optimizer = optimizer
         if last_iter == -1:
             for group in optimizer.param_groups:
-                group.setdefault('initial_lr', group['lr'])
+                group.setdefault("initial_lr", group["lr"])
             last_iter = 0
         else:
             for i, group in enumerate(optimizer.param_groups):
-                if 'initial_lr' not in group:
-                    raise KeyError("param 'initial_lr' is not specified "
-                                   "in param_groups[{}] when resuming an optimizer".format(i))
+                if "initial_lr" not in group:
+                    raise KeyError(
+                        "param 'initial_lr' is not specified "
+                        "in param_groups[{}] when resuming an optimizer".format(i)
+                    )
 
         self.baselr = base_lr
         self.learning_rate = base_lr
@@ -56,7 +66,7 @@ class CosineWarmupLR(object):
         self.warmup_iters = batches * warmup_epochs
         self.warmup_lr = warmup_lr
         self.last_iter = last_iter
-        #self.step()
+        # self.step()
 
     def state_dict(self):
         """Returns the state of the scheduler as a :class:`dict`.
@@ -64,7 +74,9 @@ class CosineWarmupLR(object):
         It contains an entry for every variable in self.__dict__ which
         is not the optimizer.
         """
-        return {key: value for key, value in self.__dict__.items() if key != 'optimizer'}
+        return {
+            key: value for key, value in self.__dict__.items() if key != "optimizer"
+        }
 
     def load_state_dict(self, state_dict):
         """Loads the schedulers state.
@@ -77,12 +89,24 @@ class CosineWarmupLR(object):
 
     def get_lr(self):
         if self.last_iter < self.warmup_iters:
-            self.learning_rate = self.warmup_lr + (self.baselr - self.warmup_lr) * \
-                                 self.last_iter / self.warmup_iters
+            self.learning_rate = (
+                self.warmup_lr
+                + (self.baselr - self.warmup_lr) * self.last_iter / self.warmup_iters
+            )
         else:
-            self.learning_rate = self.targetlr + (self.baselr - self.targetlr) * \
-                                 (1 + cos(pi * (self.last_iter - self.warmup_iters) /
-                                          (self.niters - self.warmup_iters))) / 2
+            self.learning_rate = (
+                self.targetlr
+                + (self.baselr - self.targetlr)
+                * (
+                    1
+                    + cos(
+                        pi
+                        * (self.last_iter - self.warmup_iters)
+                        / (self.niters - self.warmup_iters)
+                    )
+                )
+                / 2
+            )
 
     def step(self, iteration=None):
         """Update status of lr.
@@ -96,4 +120,5 @@ class CosineWarmupLR(object):
         self.last_iter = iteration
         self.get_lr()
         for param_group in self.optimizer.param_groups:
-            param_group['lr'] = self.learning_rate
+            param_group["lr"] = self.learning_rate
+

@@ -13,6 +13,7 @@ import torch.nn as nn
 import torch.nn.init as init
 from .common import pre_conv1x1_block, pre_conv3x3_block
 
+
 class DenseUnit(nn.Module):
     """
     DenseNet unit.
@@ -26,22 +27,20 @@ class DenseUnit(nn.Module):
     dropout_rate : float
         Parameter of Dropout layer. Faction of the input units to drop.
     """
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 dropout_rate):
+
+    def __init__(self, in_channels, out_channels, dropout_rate):
         super(DenseUnit, self).__init__()
-        self.use_dropout = (dropout_rate != 0.0)
+        self.use_dropout = dropout_rate != 0.0
         bn_size = 4
         inc_channels = out_channels - in_channels
         mid_channels = inc_channels * bn_size
 
         self.conv1 = pre_conv1x1_block(
-            in_channels=in_channels,
-            out_channels=mid_channels)
+            in_channels=in_channels, out_channels=mid_channels
+        )
         self.conv2 = pre_conv3x3_block(
-            in_channels=mid_channels,
-            out_channels=inc_channels)
+            in_channels=mid_channels, out_channels=inc_channels
+        )
         if self.use_dropout:
             self.dropout = nn.Dropout(p=dropout_rate)
 
@@ -67,17 +66,13 @@ class TransitionBlock(nn.Module):
     out_channels : int
         Number of output channels.
     """
-    def __init__(self,
-                 in_channels,
-                 out_channels):
+
+    def __init__(self, in_channels, out_channels):
         super(TransitionBlock, self).__init__()
         self.conv = pre_conv1x1_block(
-            in_channels=in_channels,
-            out_channels=out_channels)
-        self.pool = nn.AvgPool2d(
-            kernel_size=2,
-            stride=2,
-            padding=0)
+            in_channels=in_channels, out_channels=out_channels
+        )
+        self.pool = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
 
     def forward(self, x):
         x = self.conv(x)
@@ -89,32 +84,44 @@ class DenseNet(nn.Module):
     """
     DenseNet model from 'Densely Connected Convolutional Networks,' https://arxiv.org/abs/1608.06993.
     """
+
     def __init__(self, channels, init_block_channels, embedding_size=512):
         super(DenseNet, self).__init__()
-        self.input_layer = nn.Sequential(nn.Conv2d(3, init_block_channels, (3, 3), 2, 1, bias=False),
-                                    nn.BatchNorm2d(init_block_channels),
-                                    nn.PReLU(init_block_channels))
+        self.input_layer = nn.Sequential(
+            nn.Conv2d(3, init_block_channels, (3, 3), 2, 1, bias=False),
+            nn.BatchNorm2d(init_block_channels),
+            nn.PReLU(init_block_channels),
+        )
         self.features = nn.Sequential()
         in_channels = init_block_channels
         for i, channels_per_stage in enumerate(channels):
             stage = nn.Sequential()
             if i != 0:
-                stage.add_module("trans{}".format(i + 1), TransitionBlock(
-                    in_channels=in_channels,
-                    out_channels=(in_channels // 2)))
+                stage.add_module(
+                    "trans{}".format(i + 1),
+                    TransitionBlock(
+                        in_channels=in_channels, out_channels=(in_channels // 2)
+                    ),
+                )
                 in_channels = in_channels // 2
             for j, out_channels in enumerate(channels_per_stage):
-                stage.add_module("unit{}".format(j + 1), DenseUnit(
-                    in_channels=in_channels,
-                    out_channels=out_channels,
-                    dropout_rate=0.0))
+                stage.add_module(
+                    "unit{}".format(j + 1),
+                    DenseUnit(
+                        in_channels=in_channels,
+                        out_channels=out_channels,
+                        dropout_rate=0.0,
+                    ),
+                )
                 in_channels = out_channels
             self.features.add_module("stage{}".format(i + 1), stage)
-        self.output_layer = nn.Sequential(nn.BatchNorm2d(in_channels),
-                                    nn.Dropout(0.4),
-                                    nn.Flatten(),
-                                    nn.Linear(in_channels * 7 * 7, embedding_size),
-                                    nn.BatchNorm1d(embedding_size, affine=False))
+        self.output_layer = nn.Sequential(
+            nn.BatchNorm2d(in_channels),
+            nn.Dropout(0.4),
+            nn.Flatten(),
+            nn.Linear(in_channels * 7 * 7, embedding_size),
+            nn.BatchNorm1d(embedding_size, affine=False),
+        )
 
         self._init_params()
 
@@ -154,23 +161,29 @@ def densenet(input_size, embedding_size=512, blocks=201, **kwargs):
         growth_rate = 32
         layers = [6, 12, 48, 32]
     else:
-        raise ValueError("Unsupported DenseNet version with number of layers {}".format(blocks))
+        raise ValueError(
+            "Unsupported DenseNet version with number of layers {}".format(blocks)
+        )
 
     from functools import reduce
+
     channels = reduce(
-        lambda xi, yi: xi + [reduce(
-            lambda xj, yj: xj + [xj[-1] + yj],
-            [growth_rate] * yi,
-            [xi[-1][-1] // 2])[1:]],
+        lambda xi, yi: xi
+        + [
+            reduce(
+                lambda xj, yj: xj + [xj[-1] + yj], [growth_rate] * yi, [xi[-1][-1] // 2]
+            )[1:]
+        ],
         layers,
-        [[init_block_channels * 2]])[1:]
+        [[init_block_channels * 2]],
+    )[1:]
 
     net = DenseNet(
         channels=channels,
         init_block_channels=init_block_channels,
         embedding_size=embedding_size,
-        **kwargs)
+        **kwargs
+    )
 
     return net
-
 

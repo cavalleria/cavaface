@@ -1,7 +1,7 @@
 # cavaface: A Pytorch Training Framework for Deep Face Recognition
 
 [![python-url](https://img.shields.io/badge/Python-3.x-red.svg)](https://www.python.org/)
-[![pytorch-url](https://img.shields.io/badge/Pytorch-1.4-blue.svg)](https://pytorch.org/)
+[![pytorch-url](https://img.shields.io/badge/Pytorch>=1.4-blue.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 By Yaobin Li and Liying Chi
@@ -9,15 +9,6 @@ By Yaobin Li and Liying Chi
 ## Introduction
 
 This repo provides a high-performance distribute parallel training framework for face recognition with pytorch, including various backbones (e.g., ResNet, IR, IR-SE, ResNeXt, AttentionNet-IR-SE, ResNeSt, HRNet, etc.), various losses (e.g., Softmax, Focal, SphereFace, CosFace, AmSoftmax, ArcFace, ArcNegFace, CurricularFace, Li-Arcface, QAMFace, etc.), various data augmentation(e.g., RandomErasing, Mixup, RandAugment, Cutout, CutMix, etc.) and bags of tricks for improving performance (e.g., FP16 training(apex), Label smooth, LR warmup, etc)
-
-## Main requirements
-
-* **torch == 1.4.0**
-* **torchvision == 0.5.0**
-* **tensorboardX == 1.7**
-* **bcolz == 1.2.1**
-* **Python 3**
-* **Apex == 0.1**
 
 ## Features
 
@@ -89,7 +80,7 @@ See [INSTALL.md](https://github.com/cavalleria/cavaface.pytorch/blob/master/docs
 
 See [GETTING_STARTED.md](https://github.com/cavalleria/cavaface.pytorch/blob/master/docs/GETTING_STARTED.md).
 
-## Model Zoo and Baselines
+## Model Zoo and Benchmark
 
 See [MODEL_ZOO.md](https://github.com/cavalleria/cavaface.pytorch/blob/master/docs/MODEL_ZOO.md).
 
