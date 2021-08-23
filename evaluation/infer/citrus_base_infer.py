@@ -14,13 +14,13 @@ import signal
 import traceback
 
 reload(sys)
-sys.setdefaultencoding('utf-8')
+sys.setdefaultencoding("utf-8")
 
 if sys.version_info.major == 2:
-  import Queue as queue
-  from Queue import Queue
+    import Queue as queue
+    from Queue import Queue
 else:
-  import queue as Queue
+    import queue as Queue
 import threading
 
 global signal_stop
@@ -33,6 +33,7 @@ global infer_done
 
 signal_stop = False
 
+
 def sigint_handler(signum, frame):
     global signal_stop
     global read_ths
@@ -44,22 +45,24 @@ def sigint_handler(signum, frame):
 
     # wait for finish
     for t in read_ths:
-      t.join()
+        t.join()
     for t in infer_ths:
-      t.join()
+        t.join()
     write_ths.join()
 
     sys.exit()
 
+
 signal.signal(signal.SIGINT, sigint_handler)
 
 
-class writeThread (threading.Thread):
+class writeThread(threading.Thread):
     def __init__(self, out_q, write_func, tasks):
         threading.Thread.__init__(self)
         self.out_q = out_q
         self.write_func = write_func
         self.tasks = tasks
+
     def run(self):
         global signal_stop
         global write_done
@@ -68,7 +71,7 @@ class writeThread (threading.Thread):
         done = 0
         while not signal_stop:
             try:
-                #embedding, outpaths = self.out_q.get(block=True)
+                # embedding, outpaths = self.out_q.get(block=True)
                 embedding, outpaths = self.out_q.get(timeout=1)
                 if done % 10000 == 0:
                     print(done, self.tasks)
@@ -82,7 +85,8 @@ class writeThread (threading.Thread):
         print("write Thread done")
         write_done = True
 
-class readThread (threading.Thread):
+
+class readThread(threading.Thread):
     def __init__(self, in_q, out_q, read_func, is_flip, shape):
         threading.Thread.__init__(self)
         self.in_q = in_q
@@ -98,16 +102,16 @@ class readThread (threading.Thread):
             try:
                 image_path, outpath = self.in_q.get(timeout=1)
                 out_img = []
-                img = self.read_func(image_path, self.shape[0]==1)
+                img = self.read_func(image_path, self.shape[0] == 1)
                 if len(img.shape) == 3:
-                    img = img[:,:,::-1] #to rgb
-                    img = np.transpose( img, (2,0,1) )
+                    img = img[:, :, ::-1]  # to rgb
+                    img = np.transpose(img, (2, 0, 1))
                 else:
-                    img = img[np.newaxis,:]
-                attempts = [0,1] if self.is_flip else [0]
+                    img = img[np.newaxis, :]
+                attempts = [0, 1] if self.is_flip else [0]
                 for flipid in attempts:
                     _img = np.copy(img)
-                    if flipid==1:
+                    if flipid == 1:
                         self.do_flip(_img)
                     out_img.append(_img)
 
@@ -120,11 +124,10 @@ class readThread (threading.Thread):
 
     def do_flip(self, data):
         for idx in range(data.shape[0]):
-            data[idx,:,:] = np.fliplr(data[idx,:,:])
+            data[idx, :, :] = np.fliplr(data[idx, :, :])
 
 
-
-class inferThread (threading.Thread):
+class inferThread(threading.Thread):
     def __init__(self, net, fwd_func, in_q, out_q, image_shape, is_flip):
         threading.Thread.__init__(self)
         self.net = net
@@ -134,19 +137,20 @@ class inferThread (threading.Thread):
         self.batchsz = net.batch_size
         self.image_shape = image_shape
         self.is_flip = is_flip
-        self.end = False 
+        self.end = False
 
     def run(self):
         global signal_stop
         global read_done
-            
+
         bz = self.batchsz
 
-        if (self.is_flip):
-            bz = self.batchsz//2 * 2
+        if self.is_flip:
+            bz = self.batchsz // 2 * 2
 
-        input_blob = np.zeros(shape=(bz, self.image_shape[0],
-                    self.image_shape[1], self.image_shape[2]))
+        input_blob = np.zeros(
+            shape=(bz, self.image_shape[0], self.image_shape[1], self.image_shape[2])
+        )
 
         while not signal_stop and not self.end:
             idx = 0
@@ -155,37 +159,38 @@ class inferThread (threading.Thread):
                 try:
                     images, outpath = self.in_q.get(timeout=1)
                     input_blob[idx] = images[0]
-                    idx+=1
+                    idx += 1
                     if self.is_flip:
                         input_blob[idx] = images[1]
-                        idx+=1
+                        idx += 1
                     outpaths.append(outpath)
                 except queue.Empty as e:
                     if read_done:
                         self.end = True
                     break
-    
+
             if idx == 0:
-              continue
+                continue
 
             embedding = self.fwd_func(self.net, input_blob)
-    
+
             if self.is_flip:
                 embedding1 = embedding[0::2]
                 embedding2 = embedding[1::2]
-                embedding = embedding1+embedding2
-    
-            #assert len(outpaths) == embedding.shape[0], "%d vs %d"%(len(outpaths), embedding.shape[0])
+                embedding = embedding1 + embedding2
+
+            # assert len(outpaths) == embedding.shape[0], "%d vs %d"%(len(outpaths), embedding.shape[0])
             if self.is_flip:
-                assert len(outpaths) == idx/2
+                assert len(outpaths) == idx / 2
             else:
                 assert len(outpaths) == idx
-    
-            embedding = sklearn.preprocessing.normalize(embedding[0:len(outpaths)])
-    
+
+            embedding = sklearn.preprocessing.normalize(embedding[0 : len(outpaths)])
+
             self.out_q.put((embedding, outpaths))
 
         print("infer thread done")
+
 
 """
 class binThread (threading.Thread):
@@ -250,8 +255,9 @@ class binThread (threading.Thread):
         print("infer thread done")
 """
 
+
 class CitrusBaseInfer(object):
-    def __init__(self, args, dtype='fp32'):
+    def __init__(self, args, dtype="fp32"):
         self._args = args
         self._dtype = dtype
         self._net = None
@@ -269,9 +275,12 @@ class CitrusBaseInfer(object):
 
     def _load_model(self):
         raise NotImplementedError()
+
     #
 
-    def infer_embedding(self, imgs=None, read_func = None, write_func = None, is_flip=False):
+    def infer_embedding(
+        self, imgs=None, read_func=None, write_func=None, is_flip=False
+    ):
         global read_ths
         global infer_ths
         global write_ths
@@ -287,71 +296,84 @@ class CitrusBaseInfer(object):
         assert read_func is not None
 
         try:
-          in_q = Queue()
-          for items in imgs:
-            in_q.put(items)
-          tasks = in_q.qsize()
+            in_q = Queue()
+            for items in imgs:
+                in_q.put(items)
+            tasks = in_q.qsize()
 
-          print("begin thread")
- 
-          out_q = Queue()
-          img_q = Queue()
+            print("begin thread")
 
-          read_ths = []
-          infer_ths = []
+            out_q = Queue()
+            img_q = Queue()
 
-          read_thread_num = len(self._nets) * 2
-          if read_thread_num > 30:
-              read_thread_num = 30
-          for n in range(read_thread_num):
-            read_ths.append(readThread(in_q, img_q, read_func, is_flip, self._image_shape))
+            read_ths = []
+            infer_ths = []
 
-          for n in self._nets:
-            infer_ths.append(inferThread(n, self.fwd_func, img_q, out_q, self._image_shape, is_flip))
+            read_thread_num = len(self._nets) * 2
+            if read_thread_num > 30:
+                read_thread_num = 30
+            for n in range(read_thread_num):
+                read_ths.append(
+                    readThread(in_q, img_q, read_func, is_flip, self._image_shape)
+                )
 
-          for t in read_ths:
-              t.start()
+            for n in self._nets:
+                infer_ths.append(
+                    inferThread(
+                        n, self.fwd_func, img_q, out_q, self._image_shape, is_flip
+                    )
+                )
 
-          for t in infer_ths:
-              t.start()
-
-          write_ths = writeThread(out_q, write_func, tasks)
-          write_ths.start()
-
-          while not read_done:
-            done = True
             for t in read_ths:
-              if t.isAlive():
-                  done = False
-            if done:
-                read_done = True
-                print("read threads done!\n")
-            time.sleep(1)
+                t.start()
 
-          while not infer_done:
-            done = True
             for t in infer_ths:
-              if t.isAlive():
-                  done = False
-            if done:
-                infer_done = True
-                print("infer threads done!\n")
-            time.sleep(1)
+                t.start()
 
+            write_ths = writeThread(out_q, write_func, tasks)
+            write_ths.start()
 
-          while not write_done:
-              # if use join(), ctrl-c can not work
-              time.sleep(1) 
+            while not read_done:
+                done = True
+                for t in read_ths:
+                    if t.isAlive():
+                        done = False
+                if done:
+                    read_done = True
+                    print("read threads done!\n")
+                time.sleep(1)
 
-          if in_q.qsize() == 0 and img_q.qsize() == 0 and out_q.qsize() == 0:
-            return True
-          else:
-            print("not done! in_q.qsize()", in_q.qsize(), "img_q.qsize()", img_q.qsize(), "out_q.qsize()", out_q.qsize())
-            return False
+            while not infer_done:
+                done = True
+                for t in infer_ths:
+                    if t.isAlive():
+                        done = False
+                if done:
+                    infer_done = True
+                    print("infer threads done!\n")
+                time.sleep(1)
+
+            while not write_done:
+                # if use join(), ctrl-c can not work
+                time.sleep(1)
+
+            if in_q.qsize() == 0 and img_q.qsize() == 0 and out_q.qsize() == 0:
+                return True
+            else:
+                print(
+                    "not done! in_q.qsize()",
+                    in_q.qsize(),
+                    "img_q.qsize()",
+                    img_q.qsize(),
+                    "out_q.qsize()",
+                    out_q.qsize(),
+                )
+                return False
         except:
-          print("error", traceback.print_exc())
-          signal_stop = True
-          return False
+            print("error", traceback.print_exc())
+            signal_stop = True
+            return False
+
     #
 
     """
