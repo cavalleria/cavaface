@@ -49,58 +49,41 @@ class Softmax(nn.Module):
 
 
 class ArcFace(nn.Module):
-    r"""Implement of ArcFace (https://arxiv.org/pdf/1801.07698v1.pdf):
-        Args:
-            in_features: size of each input sample
-            out_features: size of each output sample
-            device_id: the ID of GPU where the model will be trained by model parallel. 
-                       if device_id=None, it will be trained on CPU without model parallel.
-            s: norm of input feature
-            m: margin
-            cos(theta+m)
-        """
-
-    def __init__(self, in_features, out_features, s=64.0, m=0.50):
+    def __init__(self, in_features, out_features, s=64.0, m_arc=0.50, m_am=0.0):
         super(ArcFace, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
 
         self.s = s
-        self.m = m
+        self.m_arc = m_arc
+        self.m_am = m_am
 
-        self.kernel = Parameter(torch.FloatTensor(in_features, out_features))
-        # nn.init.xavier_uniform_(self.kernel)
-        nn.init.normal_(self.kernel, std=0.01)
+        self.weight = Parameter(torch.Tensor(in_features, out_features))
+        self.weight.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
 
-        self.cos_m = math.cos(m)
-        self.sin_m = math.sin(m)
-        self.th = math.cos(math.pi - m)
-        self.mm = math.sin(math.pi - m) * m
+        self.cos_margin = math.cos(m_arc)
+        self.sin_margin = math.sin(m_arc)
+        self.min_cos_theta = math.cos(math.pi - m_arc)
 
     def forward(self, embbedings, label):
-        embbedings = l2_norm(embbedings, axis=1)
-        kernel_norm = l2_norm(self.kernel, axis=0)
-        cos_theta = torch.mm(embbedings, kernel_norm).clamp(
-            -1, 1
-        )  # for numerical stability
-        with torch.no_grad():
-            origin_cos = cos_theta.clone()
-        target_logit = cos_theta[torch.arange(0, embbedings.size(0)), label].view(-1, 1)
+        embbedings = F.normalize(embbedings, dim=1)
+        kernel_norm = F.normalize(self.weight, dim=0)
+        cos_theta = torch.mm(embbedings, kernel_norm).clamp(-1, 1)
+        sin_theta = torch.sqrt(1.0 - torch.pow(cos_theta, 2))
+        cos_theta_m = cos_theta * self.cos_margin - sin_theta * self.sin_margin
 
-        sin_theta = torch.sqrt(1.0 - torch.pow(target_logit, 2))
-        cos_theta_m = (
-            target_logit * self.cos_m - sin_theta * self.sin_m
-        )  # cos(target+margin)
+        # torch.where doesn't support fp16 input
+        is_half = cos_theta.dtype == torch.float16
 
-        if cfg["USE_AMP"] == True and cfg["OPT_LEVEL"] == "O1":
-            target_logit = target_logit.float()
-        final_target_logit = torch.where(
-            target_logit > self.th, cos_theta_m, target_logit - self.mm
+        cos_theta_m = torch.where(
+            cos_theta > self.min_cos_theta, cos_theta_m, cos_theta.float() - self.m_am,
         )
-        if cfg["USE_AMP"] == True and cfg["OPT_LEVEL"] == "O1":
-            final_target_logit = final_target_logit.half()
-        cos_theta.scatter_(1, label.view(-1, 1).long(), final_target_logit)
-        output = cos_theta * self.s
+        if is_half:
+            cos_theta_m = cos_theta_m.half()
+        index = torch.zeros_like(cos_theta)
+        index.scatter_(1, label.data.view(-1, 1), 1)
+        index = index.byte().bool()
+        output = cos_theta * 1.0
+        output[index] = cos_theta_m[index]
+        output *= self.s
         return output
 
 

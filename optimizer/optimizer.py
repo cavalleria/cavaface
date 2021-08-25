@@ -1,8 +1,8 @@
 import math
 import torch
-import itertools as it
-from torch.optim.optimizer import Optimizer, required
+import torch.optim as optim
 from collections import defaultdict
+from torch.optim.optimizer import Optimizer, required
 
 
 class Lookahead(Optimizer):
@@ -640,3 +640,27 @@ class SGDP(Optimizer):
                 p.data.add_(-group["lr"], d_p)
 
         return loss
+
+
+def get_optimizer(optimizer_name, params, lr, momentum):
+    if optimizer_name == "sgd":
+        optimizer = optim.SGD(params, lr=lr, momentum=momentum)
+    elif optimizer_name == "adam":
+        optimizer = optim.Adam(
+            params, lr=lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False
+        )
+    elif optimizer_name == "lookahead":
+        base_optimizer = optim.Adam(
+            params, lr=lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False
+        )
+        optimizer = Lookahead(optimizer=base_optimizer, k=5, alpha=0.5)
+    elif optimizer_name == "radam":
+        optimizer = RAdam(params, lr=lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
+    elif optimizer_name == "ranger":
+        optimizer = Ranger(params, lr=lr, alpha=0.5, k=6)
+    elif optimizer_name == "adamp":
+        optimizer = AdamP(params, lr=lr, betas=(0.9, 0.999), weight_decay=1e-2)
+    elif optimizer_name == "sgdp":
+        optimizer = SGDP(params, lr=lr, weight_decay=1e-5, momentum=0.9, nesterov=True)
+
+    return optimizer

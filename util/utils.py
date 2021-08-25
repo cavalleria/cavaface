@@ -44,7 +44,7 @@ def separate_irse_bn_paras(modules):
     return paras_only_bn, paras_wo_bn
 
 
-def separate_resnet_bn_paras(modules):
+def separate_bn_paras(modules):
     all_parameters = modules.parameters()
     paras_only_bn = []
 

@@ -1,21 +1,23 @@
 import os
 import sys
-import copy
-import apex
 import torch
 import builtins
 from apex import amp
 from tqdm import tqdm
-import torch.nn as nn
-import torch.optim as optim
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import torchvision.transforms as transforms
+from torch.nn.utils import clip_grad_norm_
+from torch.cuda.amp import GradScaler, autocast
+from torch.distributed.optim import ZeroRedundancyOptimizer
+from torch.nn.parallel import DistributedDataParallel as DDP
+
+import torchshard as ts
 
 from config import configurations
 from backbone import *
 from head import *
-from loss.loss import *
+from loss import *
 from dataset import *
 from util.utils import *
 from util.verification import *
@@ -31,14 +33,14 @@ def main():
     cfg["WORLD_SIZE"] = ngpus_per_node * world_size
 
     # load val data
-    val_dataset = get_val_dataset(cfg["DATA_ROOT"], cfg["VAL_SET"])
+    # val_dataset = get_val_dataset(cfg["DATA_ROOT"], cfg["VAL_SET"])
     mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, cfg))
 
 
 def main_worker(gpu, ngpus_per_node, cfg):
     cfg["GPU"] = gpu
-    SEED = cfg["SEED"]
-    set_seed(SEED)
+    seed = cfg["SEED"]
+    set_seed(seed)
     torch.backends.cudnn.benchmark = True
     torch.backends.cudnn.deterministic = True
     if gpu != 0:
@@ -54,31 +56,34 @@ def main_worker(gpu, ngpus_per_node, cfg):
         world_size=cfg["WORLD_SIZE"],
         rank=cfg["RANK"],
     )
+    if cfg["ENABLE_MODEL_PARALLEL"]:
+        # init model parallel processes and groups
+        ts.distributed.init_process_group(group_size=cfg["WORLD_SIZE"])
 
-    MODEL_ROOT = cfg["MODEL_ROOT"]
-    os.makedirs(MODEL_ROOT, exist_ok=True)
+    model_root = cfg["MODEL_ROOT"]
+    os.makedirs(model_root, exist_ok=True)
 
     batch_size = int(cfg["BATCH_SIZE"])
     per_batch_size = int(batch_size / ngpus_per_node)
     workers = int(cfg["NUM_WORKERS"])
-    DATA_ROOT = cfg["DATA_ROOT"]
-    SYNC_DATA = cfg["SYNC_DATA"]
-    SYNC_DATA_NUMCLASS = cfg["SYNC_DATA_NUMCLASS"]
-    RGB_MEAN = cfg["RGB_MEAN"]
-    RGB_STD = cfg["RGB_STD"]
-    DROP_LAST = cfg["DROP_LAST"]
-    OPTIMIZER = cfg["OPTIMIZER"]
-    LR_SCHEDULER = cfg["LR_SCHEDULER"]
-    LR_STEP_SIZE = cfg["LR_STEP_SIZE"]
-    LR_DECAY_EPOCH = cfg["LR_DECAY_EPOCH"]
-    LR_DECAT_GAMMA = cfg["LR_DECAT_GAMMA"]
-    LR_END = cfg["LR_END"]
-    WARMUP_EPOCH = cfg["WARMUP_EPOCH"]
-    WARMUP_LR = cfg["WARMUP_LR"]
-    NUM_EPOCH = cfg["NUM_EPOCH"]
-    USE_AMP = cfg["USE_AMP"]
-    EVAL_FREQ = cfg["EVAL_FREQ"]
-    SYNC_BN = cfg["SYNC_BN"]
+    data_root = cfg["DATA_ROOT"]
+    sync_data = cfg["SYNC_DATA"]
+    sync_data_numclass = cfg["SYNC_DATA_NUMCLASS"]
+    optimizer_name = cfg["OPTIMIZER"]
+    weight_decay = cfg["WEIGHT_DECAY"]
+    momentum = cfg["MOMENTUM"]
+    lr = cfg["LR"]
+    lr_scheduler = cfg["LR_SCHEDULER"]
+    lr_step_size = cfg["LR_STEP_SIZE"]
+    lr_decay_epoch = cfg["LR_DECAY_EPOCH"]
+    lr_decay_gamma = cfg["LR_DECAT_GAMMA"]
+    lr_end = cfg["LR_END"]
+    warmup_epoch = cfg["WARMUP_EPOCH"]
+    warmup_lr = cfg["WARMUP_LR"]
+    num_epoch = cfg["NUM_EPOCH"]
+    start_epoch = cfg["START_EPOCH"]
+    eval_freq = cfg["EVAL_FREQ"]
+
     print("=" * 60)
     print("Overall Configurations:")
     print(cfg)
@@ -93,7 +98,9 @@ def main_worker(gpu, ngpus_per_node, cfg):
     if cfg["CUTOUT"]:
         transform_list.append(Cutout())
     transform_list.append(transforms.ToTensor())
-    transform_list.append(transforms.Normalize(mean=RGB_MEAN, std=RGB_STD))
+    transform_list.append(
+        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+    )
     if cfg["RANDOM_ERASING"]:
         transform_list.append(transforms.RandomErasing())
     train_transform = transforms.Compose(transform_list)
@@ -106,10 +113,10 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print("Train Transform Generated")
     print("=" * 60)
 
-    if SYNC_DATA:
-        dataset_train = SyntheticDataset(SYNC_DATA_NUMCLASS)
+    if sync_data:
+        dataset_train = SyntheticDataset(sync_data_numclass)
     else:
-        dataset_train = MXFaceDataset(DATA_ROOT, train_transform)
+        dataset_train = MXFaceDataset(data_root, train_transform)
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
     train_loader = torch.utils.data.DataLoader(
         dataset_train,
@@ -118,137 +125,83 @@ def main_worker(gpu, ngpus_per_node, cfg):
         num_workers=workers,
         pin_memory=True,
         sampler=train_sampler,
-        drop_last=DROP_LAST,
+        drop_last=True,
     )
-    NUM_CLASS = train_loader.dataset.classes
+    num_class = train_loader.dataset.classes
 
     # ======= model & loss & optimizer =======#
-    BACKBONE_DICT = {
-        "MobileFaceNet": MobileFaceNet,
-        "ResNet_50": ResNet_50,
-        "ResNet_101": ResNet_101,
-        "ResNet_152": ResNet_152,
-        "IR_50": IR_50,
-        "IR_100": IR_100,
-        "IR_101": IR_101,
-        "IR_152": IR_152,
-        "IR_185": IR_185,
-        "IR_200": IR_200,
-        "IR_SE_50": IR_SE_50,
-        "IR_SE_100": IR_SE_100,
-        "IR_SE_101": IR_SE_101,
-        "IR_SE_152": IR_SE_152,
-        "IR_SE_185": IR_SE_185,
-        "IR_SE_200": IR_SE_200,
-        "AttentionNet_IR_56": AttentionNet_IR_56,
-        "AttentionNet_IRSE_56": AttentionNet_IRSE_56,
-        "AttentionNet_IR_92": AttentionNet_IR_92,
-        "AttentionNet_IRSE_92": AttentionNet_IRSE_92,
-        "ResNeSt_50": resnest50,
-        "ResNeSt_101": resnest101,
-        "ResNeSt_100": resnest100,
-        "GhostNet": GhostNet,
-        "MobileNetV3": MobileNetV3,
-        "ProxylessNAS": proxylessnas,
-        "EfficientNet": efficientnet,
-        "DenseNet": densenet,
-        "ReXNetV1": ReXNetV1,
-        "MobileNeXt": MobileNeXt,
-        "MobileNetV2": MobileNetV2,
-    }  #'HRNet_W30': HRNet_W30, 'HRNet_W32': HRNet_W32, 'HRNet_W40': HRNet_W40, 'HRNet_W44': HRNet_W44, 'HRNet_W48': HRNet_W48, 'HRNet_W64': HRNet_W64
-
-    BACKBONE_NAME = cfg["BACKBONE_NAME"]
-    INPUT_SIZE = cfg["INPUT_SIZE"]
-    assert INPUT_SIZE == [112, 112]
-    backbone = BACKBONE_DICT[BACKBONE_NAME](INPUT_SIZE)
+    backbone_name = cfg["BACKBONE_NAME"]
+    input_size = cfg["INPUT_SIZE"]
+    assert input_size == [112, 112]
+    backbone = BACKBONE_DICT[backbone_name](input_size)
     print("=" * 60)
     print(backbone)
-    print("{} Backbone Generated".format(BACKBONE_NAME))
+    print("{} Backbone Generated".format(backbone_name))
     print("=" * 60)
-    HEAD_DICT = {
-        "Softmax": Softmax,
-        "ArcFace": ArcFace,
-        "Combined": Combined,
-        "CosFace": CosFace,
-        "SphereFace": SphereFace,
-        "Am_softmax": Am_softmax,
-        "CurricularFace": CurricularFace,
-        "ArcNegFace": ArcNegFace,
-        "SVX": SVXSoftmax,
-        "AirFace": AirFace,
-        "QAMFace": QAMFace,
-        "CircleLoss": CircleLoss,
-    }
 
-    HEAD_NAME = cfg["HEAD_NAME"]
-    EMBEDDING_SIZE = cfg["EMBEDDING_SIZE"]
-    head = HEAD_DICT[HEAD_NAME](in_features=EMBEDDING_SIZE, out_features=NUM_CLASS)
+    head_name = cfg["HEAD_NAME"]
+    emd_size = cfg["EMBEDDING_SIZE"]
+    if cfg["ENABLE_MODEL_PARALLEL"]:
+        head = HEAD_DICT[head_name](
+            in_features=emd_size, out_features=num_class, dim=cfg["MODEL_PARALLEL_DIM"]
+        )
+    else:
+        head = HEAD_DICT[head_name](in_features=emd_size, out_features=num_class)
     print("Params: ", count_model_params(backbone))
     print("Flops:", count_model_flops(backbone))
     print("=" * 60)
     print(head)
-    print("{} Head Generated".format(HEAD_NAME))
+    print("{} Head Generated".format(head_name))
     print("=" * 60)
+    if cfg["ENABLE_MODEL_PARALLEL"] and cfg["MODEL_PARALLEL_DIM"] is not None:
+        # let DDP ignore parallel parameters
+        ts.register_ddp_parameters_to_ignore(backbone)
+        ts.register_ddp_parameters_to_ignore(head)
 
-    # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
-    if BACKBONE_NAME.find("IR") >= 0:
+    if backbone_name.find("IR") >= 0:
         backbone_paras_only_bn, backbone_paras_wo_bn = separate_irse_bn_paras(backbone)
     else:
-        backbone_paras_only_bn, backbone_paras_wo_bn = separate_resnet_bn_paras(
-            backbone
-        )
+        backbone_paras_only_bn, backbone_paras_wo_bn = separate_bn_paras(backbone)
 
     torch.cuda.set_device(cfg["GPU"])
     backbone.cuda(cfg["GPU"])
     head.cuda(cfg["GPU"])
 
-    LR = cfg["LR"]
-    WEIGHT_DECAY = cfg["WEIGHT_DECAY"]
-    MOMENTUM = cfg["MOMENTUM"]
     params = [
         {
             "params": backbone_paras_wo_bn + list(head.parameters()),
-            "weight_decay": WEIGHT_DECAY,
+            "weight_decay": weight_decay,
         },
         {"params": backbone_paras_only_bn},
     ]
-    if OPTIMIZER == "sgd":
-        optimizer = optim.SGD(params, lr=LR, momentum=MOMENTUM)
-    elif OPTIMIZER == "adam":
-        optimizer = optim.Adam(
-            params, lr=LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False
+    if cfg["ENABLE_ZERO_OPTIM"]:
+        print("using ZeroRedundancyOptimizer")
+        optimizer = ZeroRedundancyOptimizer(
+            backbone.parameters(),
+            optimizer_class=torch.optim.SGD,
+            lr=lr,
+            momentum=momentum,
+            weight_decay=weight_decay,
         )
-    elif OPTIMIZER == "lookahead":
-        base_optimizer = optim.Adam(
-            params, lr=LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False
-        )
-        optimizer = Lookahead(optimizer=base_optimizer, k=5, alpha=0.5)
-    elif OPTIMIZER == "radam":
-        optimizer = RAdam(params, lr=LR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
-    elif OPTIMIZER == "ranger":
-        optimizer = Ranger(params, lr=LR, alpha=0.5, k=6)
-    elif OPTIMIZER == "adamp":
-        optimizer = AdamP(params, lr=LR, betas=(0.9, 0.999), weight_decay=1e-2)
-    elif OPTIMIZER == "sgdp":
-        optimizer = SGDP(params, lr=LR, weight_decay=1e-5, momentum=0.9, nesterov=True)
-
-    if LR_SCHEDULER == "step":
+    else:
+        optimizer = get_optimizer(optimizer_name, params, lr, momentum)
+    if lr_scheduler == "step":
         scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer, step_size=LR_STEP_SIZE, gamma=LR_DECAT_GAMMA
+            optimizer, step_size=lr_step_size, gamma=lr_decay_gamma
         )
-    elif LR_SCHEDULER == "multi_step":
+    elif lr_scheduler == "multi_step":
         scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            optimizer, milestones=LR_DECAY_EPOCH, gamma=LR_DECAT_GAMMA
+            optimizer, milestones=lr_decay_epoch, gamma=lr_decay_gamma
         )
-    elif LR_SCHEDULER == "cosine":
+    elif lr_scheduler == "cosine":
         scheduler = CosineWarmupLR(
             optimizer,
             batches=len(train_loader),
-            epochs=NUM_EPOCH,
-            base_lr=LR,
-            target_lr=LR_END,
-            warmup_epochs=WARMUP_EPOCH,
-            warmup_lr=WARMUP_LR,
+            epochs=num_epoch,
+            base_lr=lr,
+            target_lr=lr_end,
+            warmup_epochs=warmup_epoch,
+            warmup_lr=warmup_lr,
         )
 
     print("=" * 60)
@@ -257,74 +210,33 @@ def main_worker(gpu, ngpus_per_node, cfg):
     print("=" * 60)
 
     # loss
-    LOSS_NAME = cfg["LOSS_NAME"]
-    LOSS_DICT = {
-        "CrossEntropy": nn.CrossEntropyLoss(),
-        "LabelSmooth": LabelSmoothCrossEntropyLoss(classes=NUM_CLASS),
-        "Focal": FocalLoss(),
-        "HM": HardMining(),
-        "Softplus": nn.Softplus(),
-    }
-    loss = LOSS_DICT[LOSS_NAME].cuda(gpu)
+    loss_name = cfg["LOSS_NAME"]
+    loss = LOSS_DICT[loss_name].cuda(gpu)
     print("=" * 60)
     print(loss)
-    print("{} Loss Generated".format(LOSS_NAME))
+    print("{} Loss Generated".format(loss_name))
     print("=" * 60)
 
-    # optionally resume from a checkpoint
-    BACKBONE_RESUME_ROOT = cfg["BACKBONE_RESUME_ROOT"]
-    HEAD_RESUME_ROOT = cfg["HEAD_RESUME_ROOT"]
-    IS_RESUME = cfg["IS_RESUME"]
-    if IS_RESUME:
-        print("=" * 60)
-        if os.path.isfile(BACKBONE_RESUME_ROOT):
-            print("Loading Backbone Checkpoint '{}'".format(BACKBONE_RESUME_ROOT))
-            loc = "cuda:{}".format(cfg["GPU"])
-            backbone.load_state_dict(torch.load(BACKBONE_RESUME_ROOT, map_location=loc))
-            if os.path.isfile(HEAD_RESUME_ROOT):
-                print("Loading Head Checkpoint '{}'".format(HEAD_RESUME_ROOT))
-                checkpoint = torch.load(HEAD_RESUME_ROOT, map_location=loc)
-                cfg["START_EPOCH"] = checkpoint["EPOCH"]
-                head.load_state_dict(checkpoint["HEAD"])
-                optimizer.load_state_dict(checkpoint["OPTIMIZER"])
-                del checkpoint
-        else:
-            print(
-                "No Checkpoint Found at '{}' and '{}'. Please Have a Check or Continue to Train from Scratch".format(
-                    BACKBONE_RESUME_ROOT, HEAD_RESUME_ROOT
-                )
-            )
-        print("=" * 60)
-    ori_backbone = copy.deepcopy(backbone)
-    if SYNC_BN:
-        backbone = apex.parallel.convert_syncbn_model(backbone)
-    if USE_AMP:
-        [backbone, head], optimizer = amp.initialize(
-            [backbone, head], optimizer, opt_level=cfg["OPT_LEVEL"]
-        )
-        backbone = apex.parallel.DistributedDataParallel(backbone)
-        head = apex.parallel.DistributedDataParallel(head)
-    else:
-        backbone = torch.nn.parallel.DistributedDataParallel(
-            backbone, device_ids=[cfg["GPU"]]
-        )
-        head = torch.nn.parallel.DistributedDataParallel(head, device_ids=[cfg["GPU"]])
+    # ori_backbone = copy.deepcopy(backbone)
 
+    backbone = DDP(backbone, [cfg["GPU"]])
+    head = DDP(head, [cfg["GPU"]])
+    scaler = GradScaler(enabled=cfg["ENABLE_AMP"])
     # train
-    for epoch in range(cfg["START_EPOCH"], cfg["NUM_EPOCH"]):
+    for epoch in range(start_epoch, num_epoch):
         train_sampler.set_epoch(epoch)
-        if LR_SCHEDULER != "cosine":
+        if lr_scheduler != "cosine":
             scheduler.step()
-        # train for one epoch
-        DISP_FREQ = 100
         batch = 0
         backbone.train()
         head.train()
         losses = AverageMeter()
         top1 = AverageMeter()
         top5 = AverageMeter()
+        # gradscaler
+
         for inputs, labels in tqdm(iter(train_loader)):
-            if LR_SCHEDULER == "cosine":
+            if lr_scheduler == "cosine":
                 scheduler.step()
             inputs = inputs.cuda(cfg["GPU"], non_blocking=True)
             labels = labels.cuda(cfg["GPU"], non_blocking=True)
@@ -339,36 +251,47 @@ def main_worker(gpu, ngpus_per_node, cfg):
                     inputs, labels, cfg["GPU"], cfg["CUTMIX_PROB"], cfg["MIXUP_ALPHA"]
                 )
                 inputs, labels_a, labels_b = map(Variable, (inputs, labels_a, labels_b))
-            features = backbone(inputs)
-            outputs = head(features, labels)
 
-            if cfg["MIXUP"] or cfg["CUTMIX"]:
-                lossx = mixup_criterion(loss, outputs, labels_a, labels_b, lam)
-            else:
-                lossx = (
-                    loss(outputs, labels)
-                    if HEAD_NAME != "CircleLoss"
-                    else loss(outputs).mean()
-                )
+            with autocast(enabled=cfg["ENABLE_AMP"]):
+                features = backbone(inputs)
+                if cfg["ENABLE_MODEL_PARALLEL"]:
+                    features = ts.distributed.gather(features, dim=0)
+                    labels = ts.distributed.gather(labels, dim=0)
+                    outputs = head(features)
+                else:
+                    outputs = head(features, labels)
 
+                if cfg["MIXUP"] or cfg["CUTMIX"]:
+                    lossx = mixup_criterion(loss, outputs, labels_a, labels_b, lam)
+                else:
+                    lossx = (
+                        loss(outputs, labels)
+                        if head_name != "CircleLoss"
+                        else loss(outputs).mean()
+                    )
+
+            if cfg["ENABLE_MODEL_PARALLEL"] and cfg["MODEL_PARALLEL_DIM"] in [1, -1]:
+                outputs = outputs[0]
+                outputs = ts.distributed.gather(outputs, dim=-1)
+
+            scaler.scale(lossx).backward()
+            scaler.unscale_(optimizer)
+            clip_grad_norm_(backbone.parameters(), max_norm=5, norm_type=2)
+            scaler.step(optimizer)
+            scaler.update()
             optimizer.zero_grad()
-            if USE_AMP:
-                with amp.scale_loss(lossx, optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            else:
-                lossx.backward()
-            optimizer.step()
 
             prec1, prec5 = (
                 accuracy(outputs.data, labels, topk=(1, 5))
-                if HEAD_NAME != "CircleLoss"
+                if head_name != "CircleLoss"
                 else accuracy(features.data, labels, topk=(1, 5))
             )
             losses.update(lossx.data.item(), inputs.size(0))
             top1.update(prec1.data.item(), inputs.size(0))
             top5.update(prec5.data.item(), inputs.size(0))
+            torch.cuda.synchronize()
 
-            if ((batch + 1) % DISP_FREQ == 0) or batch == 0:
+            if ((batch + 1) % 100 == 0) or batch == 0:
                 print("=" * 60)
                 print(
                     "Epoch {}/{} Batch {}/{}\t"
@@ -376,7 +299,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
                     "Training Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t"
                     "Training Prec@5 {top5.val:.3f} ({top5.avg:.3f})".format(
                         epoch + 1,
-                        cfg["NUM_EPOCH"],
+                        num_epoch,
                         batch + 1,
                         len(train_loader),
                         loss=losses,
@@ -386,7 +309,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
                 )
                 print("=" * 60)
 
-            if (batch + 1) % EVAL_FREQ == 0:
+            if (batch + 1) % eval_freq == 0:
                 # lr = scheduler.get_last_lr()
                 lr = optimizer.param_groups[0]["lr"]
                 print("Current lr", lr)
@@ -395,7 +318,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
                     result = ver_test(vs, backbone)
                     print(
                         "Epoch {}/{}, Evaluation: {}, Acc: {}, XNorm: {}".format(
-                            epoch + 1, NUM_EPOCH, vs[2], result[0], result[2]
+                            epoch + 1, num_epoch, vs[2], result[0], result[2]
                         )
                     )
                 print("=" * 60)
@@ -404,15 +327,13 @@ def main_worker(gpu, ngpus_per_node, cfg):
                 print("Save Checkpoint...")
                 if cfg["RANK"] % ngpus_per_node == 0:
                     """
-                    if epoch+1==cfg['NUM_EPOCH']:
-                        torch.save(backbone.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, get_time())))
+                    if epoch+1==num_epoch:
+                        torch.save(backbone.module.state_dict(), os.path.join(model_root, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(backbone_name, epoch + 1, get_time())))
                         save_dict = {'EPOCH': epoch+1,
                                     'HEAD': head.module.state_dict(),
                                     'OPTIMIZER': optimizer.state_dict()}
-                        torch.save(save_dict, os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, get_time())))
+                        torch.save(save_dict, os.path.join(model_root, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(head_name, epoch + 1, get_time())))
                     """
-                    if USE_AMP:
-                        ori_backbone = ori_backbone.half()
                     ori_backbone.load_state_dict(backbone.module.state_dict())
                     ori_backbone.eval()
                     x = torch.randn(1, 3, 112, 112).cuda()
@@ -420,7 +341,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
                     torch.jit.save(
                         traced_cell,
                         os.path.join(
-                            MODEL_ROOT,
+                            model_root,
                             "Epoch_{}_Time_{}_checkpoint.pth".format(
                                 epoch + 1, get_time()
                             ),
@@ -435,7 +356,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
             "Training Loss {loss.val:.4f} ({loss.avg:.4f})\t"
             "Training Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t"
             "Training Prec@5 {top5.val:.3f} ({top5.avg:.3f})".format(
-                epoch + 1, cfg["NUM_EPOCH"], loss=losses, top1=top1, top5=top5
+                epoch + 1, num_epoch, loss=losses, top1=top1, top5=top5
             )
         )
         sys.stdout.flush()

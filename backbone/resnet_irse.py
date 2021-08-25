@@ -6,18 +6,15 @@ from torch.nn import (
     BatchNorm1d,
     BatchNorm2d,
     PReLU,
-    ReLU,
-    Sigmoid,
     Dropout,
-    MaxPool2d,
-    AdaptiveAvgPool2d,
     Sequential,
     Module,
 )
 from collections import namedtuple
-from .common import Flatten, l2_norm, SEModule, bottleneck_IR, bottleneck_IR_SE
+from .common import Flatten, bottleneck_IR, bottleneck_IR_SE
+from config import configurations
 
-# Support: ['IR_50', 'IR_100', 'IR_101', 'IR_152', 'IR_185', 'IR_200', 'IR_SE_50', 'IR_SE_100', 'IR_SE_101', 'IR_SE_152', 'IR_SE_185', 'IR_SE_200']
+cfg = configurations[1]
 
 
 class Bottleneck(namedtuple("Block", ["in_channel", "depth", "stride"])):
@@ -92,7 +89,7 @@ class Backbone(Module):
             152,
             185,
             200,
-        ], "num_layers should be 50, 100 or 152"
+        ], "num_layers should be 50, 100, 152, 185, 200"
         assert mode in ["ir", "ir_se"], "mode should be ir or ir_se"
         blocks = get_blocks(num_layers)
         if mode == "ir":
@@ -102,10 +99,12 @@ class Backbone(Module):
         self.input_layer = Sequential(
             Conv2d(3, 64, (3, 3), 1, 1, bias=False), BatchNorm2d(64), PReLU(64)
         )
+        """
+        
         if input_size[0] == 112:
             self.output_layer = Sequential(
                 BatchNorm2d(512),
-                Dropout(0.4),
+                Dropout(0.4, inplace=True),
                 Flatten(),
                 Linear(512 * 7 * 7, 512),
                 BatchNorm1d(512, affine=False),
@@ -113,11 +112,18 @@ class Backbone(Module):
         else:
             self.output_layer = Sequential(
                 BatchNorm2d(512),
-                Dropout(0.4),
+                Dropout(0.4, inplace=True),
                 Flatten(),
                 Linear(512 * 14 * 14, 512),
                 BatchNorm1d(512, affine=False),
             )
+        """
+        self.bn2 = nn.BatchNorm2d(512, eps=1e-05,)
+        self.dropout = nn.Dropout(p=0.4, inplace=True)
+        self.fc = nn.Linear(512 * 7 * 7, 512)
+        self.features = nn.BatchNorm1d(512, eps=1e-05)
+        nn.init.constant_(self.features.weight, 1.0)
+        self.features.weight.requires_grad = False
 
         modules = []
         for block in blocks:
@@ -132,9 +138,15 @@ class Backbone(Module):
         self._initialize_weights()
 
     def forward(self, x):
-        x = self.input_layer(x)
-        x = self.body(x)
-        x = self.output_layer(x)
+        with torch.cuda.amp.autocast(cfg["ENABLE_AMP"]):
+            x = self.input_layer(x)
+            x = self.body(x)
+            # x = self.output_layer(x)
+            x = self.bn2(x)
+            x = torch.flatten(x, 1)
+            x = self.dropout(x)
+        x = self.fc(x.float() if cfg["ENABLE_AMP"] else x)
+        x = self.features(x)
 
         return x
 
