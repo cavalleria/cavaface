@@ -175,7 +175,6 @@ def main_worker(gpu, ngpus_per_node, cfg):
         {"params": backbone_paras_only_bn},
     ]
     if cfg["ENABLE_ZERO_OPTIM"]:
-        print("using ZeroRedundancyOptimizer")
         optimizer = ZeroRedundancyOptimizer(
             backbone.parameters(),
             optimizer_class=torch.optim.SGD,

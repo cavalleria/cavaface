@@ -2,27 +2,27 @@ configurations = {
     1: dict(
         SEED=1337,
         SYNC_DATA=True,
-        SYNC_DATA_NUMCLASS=50 * 10000,  # 2059904,
+        SYNC_DATA_NUMCLASS=100 * 10000,  # 2059904,
         DATA_ROOT="../data/webface260m",
         VAL_SET="lfw, cfp_fp, agedb_30",
         MODEL_ROOT="../models/tmp/model",
         IS_RESUME=False,
         BACKBONE_RESUME_ROOT="",
         HEAD_RESUME_ROOT="",
-        BACKBONE_NAME="IR_50",  # support: ['MobileFaceNet', 'ResNet_50', 'ResNet_101', 'ResNet_152',
+        BACKBONE_NAME="IR_100",  # support: ['MobileFaceNet', 'ResNet_50', 'ResNet_101', 'ResNet_152',
         #'IR_50', 'IR_101', 'IR_152', 'IR_SE_50', 'IR_SE_100', 'IR_SE_101', 'IR_SE_152',
         #'AttentionNet_IR_56', 'AttentionNet_IRSE_56','AttentionNet_IR_92', 'AttentionNet_IRSE_92',
         #'ResNeSt_50', 'ResNeSt_101', 'ResNeSt_100']
-        HEAD_NAME="ArcFace",  # ArcFace, ParallelArcFace
-        LOSS_NAME="CrossEntropy",  # CrossEntropy, ParallelArcLoss
-        ENABLE_MODEL_PARALLEL=False,
+        HEAD_NAME="ParallelArcFace",  # ArcFace, ParallelArcFace
+        LOSS_NAME="ParallelArcLoss",  # CrossEntropy, ParallelArcLoss
+        ENABLE_MODEL_PARALLEL=True,
         MODEL_PARALLEL_DIM=1,  # -1/1/0
         ENABLE_AMP=True,
         OPTIMIZER="sgd",
-        ENABLE_ZERO_OPTIM=False,
+        ENABLE_ZERO_OPTIM=True,
         INPUT_SIZE=[112, 112],
         EMBEDDING_SIZE=512,
-        BATCH_SIZE=1024,
+        BATCH_SIZE=512,
         EVAL_FREQ=2000,
         LR=0.1,
         LR_SCHEDULER="cosine",

@@ -3,6 +3,7 @@
 [![python-url](https://img.shields.io/badge/Python-3.x-red.svg)](https://www.python.org/)
 [![pytorch-url](https://img.shields.io/badge/Pytorch>=1.4-blue.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Docker Pulls](https://img.shields.io/docker/pulls/cavall/cavaface_env?logo=docker).
 
 By Yaobin Li and Liying Chi
 
