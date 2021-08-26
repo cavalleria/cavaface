@@ -255,8 +255,8 @@ def main_worker(gpu, ngpus_per_node, cfg):
                 features = backbone(inputs)
                 if cfg["ENABLE_MODEL_PARALLEL"]:
                     features = ts.distributed.gather(features, dim=0)
-                    labels = ts.distributed.gather(labels, dim=0)
                     outputs = head(features)
+                    labels = ts.distributed.gather(labels, dim=0)
                 else:
                     outputs = head(features, labels)
 
