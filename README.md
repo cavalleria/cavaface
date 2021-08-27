@@ -50,10 +50,10 @@ This repo provides a high-performance distribute parallel training framework for
   * [x] QAMFace
   * [x] Circle Loss 
 * **Parallel Training**
-  * [x] Data Parallel
+  * [x] DDP
   * [x] Model Parallel
 * **Automatic Mixed Precision**
-  * [x] Apex
+  * [x] AMP
 * **Optimizer**
   * [x] LRScheduler([faireq](https://github.com/pytorch/fairseq/tree/master/fairseq/optim/lr_scheduler),[rwightman](https://github.com/rwightman/pytorch-image-models/tree/master/timm/scheduler))
   * [x] Optim(SGD,Adam,RAdam,LookAhead,Ranger,AdamP,SGDP)
@@ -70,6 +70,7 @@ This repo provides a high-performance distribute parallel training framework for
 * **Bag of Tricks**
   * [x] Label smooth
   * [x] LR warmup
+  * [x] ZeRO
 
 </details>
 
