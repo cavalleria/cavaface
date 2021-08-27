@@ -57,6 +57,7 @@ This repo provides a high-performance distribute parallel training framework for
 * **Optimizer**
   * [x] LRScheduler([faireq](https://github.com/pytorch/fairseq/tree/master/fairseq/optim/lr_scheduler),[rwightman](https://github.com/rwightman/pytorch-image-models/tree/master/timm/scheduler))
   * [x] Optim(SGD,Adam,RAdam,LookAhead,Ranger,AdamP,SGDP)
+  * [x] ZeRO
 * **[Data Augmentation](https://github.com/albumentations-team/albumentations)**
   * [x] [RandomErasing](https://github.com/zhunzhong07/Random-Erasing/blob/master/transforms.py)(官方版torchvision.transforms.RandomErasing)
   * [x] Mixup
@@ -70,7 +71,6 @@ This repo provides a high-performance distribute parallel training framework for
 * **Bag of Tricks**
   * [x] Label smooth
   * [x] LR warmup
-  * [x] ZeRO
 
 </details>
 
