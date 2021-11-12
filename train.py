@@ -308,6 +308,9 @@ def main_worker(gpu, ngpus_per_node, cfg):
                 )
                 print("=" * 60)
 
+            state_dict = backbone.module.state_dict()
+            if cfg["ENABLE_MODEL_PARALLEL"]:
+                state_dict = ts.collect_state_dict(backbone, state_dict)
             if (batch + 1) % eval_freq == 0:
                 # lr = scheduler.get_last_lr()
                 lr = optimizer.param_groups[0]["lr"]
@@ -325,13 +328,17 @@ def main_worker(gpu, ngpus_per_node, cfg):
                 print("=" * 60)
                 print("Save Checkpoint...")
                 if cfg["RANK"] % ngpus_per_node == 0:
-                    """
-                    if epoch+1==num_epoch:
-                        torch.save(backbone.module.state_dict(), os.path.join(model_root, "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(backbone_name, epoch + 1, get_time())))
-                        save_dict = {'EPOCH': epoch+1,
-                                    'HEAD': head.module.state_dict(),
-                                    'OPTIMIZER': optimizer.state_dict()}
-                        torch.save(save_dict, os.path.join(model_root, "Head_{}_Epoch_{}_Time_{}_checkpoint.pth".format(head_name, epoch + 1, get_time())))
+                    if epoch + 1 == num_epoch:
+                        torch.save(
+                            backbone.module.state_dict(),
+                            os.path.join(
+                                model_root,
+                                "Backbone_{}_Epoch_{}_Time_{}_checkpoint.pth".format(
+                                    backbone_name, epoch + 1, get_time()
+                                ),
+                            ),
+                        )
+
                     """
                     ori_backbone.load_state_dict(backbone.module.state_dict())
                     ori_backbone.eval()
@@ -346,7 +353,7 @@ def main_worker(gpu, ngpus_per_node, cfg):
                             ),
                         ),
                     )
-
+                    """
             sys.stdout.flush()
             batch += 1
         print("=" * 60)
