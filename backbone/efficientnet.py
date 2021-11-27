@@ -417,7 +417,7 @@ def efficientnet(input_size, embedding_size=512, version="b1", **kwargs):
     elif version == "b4":
         in_size = (190, 190)
         depth_factor = 1.8
-        width_factor = 1.4
+        width_factor = 1.5
         dropout_rate = 0.4
     elif version == "b5":
         in_size = (228, 228)
